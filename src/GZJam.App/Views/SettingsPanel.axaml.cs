@@ -11,6 +11,7 @@ public enum SettingsSection
     Decks,
     Screen,
     Library,
+    Navidrome,
     About,
 }
 
@@ -46,7 +47,7 @@ public partial class SettingsPanel : UserControl
     public event EventHandler? FileRatingsRequested;
 
     private (RadioButton Nav, Control Page)[] Sections =>
-        [(NavSound, SoundPage), (NavDecks, DecksPage), (NavScreen, ScreenPage), (NavLibrary, LibraryPage), (NavAbout, AboutPage)];
+        [(NavSound, SoundPage), (NavDecks, DecksPage), (NavScreen, ScreenPage), (NavLibrary, LibraryPage), (NavNavidrome, NavidromePage), (NavAbout, AboutPage)];
 
     /// <summary>The section showing.</summary>
     public SettingsSection Section

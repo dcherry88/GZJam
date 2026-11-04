@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GZJam.App.ViewModels"
+        x:Class="GZJam.App.Views.DownloadsWindow"
+        x:DataType="vm:DownloadsViewModel"
+        Width="640" Height="520" MinWidth="460" MinHeight="300"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource PanelBrush}"
+        Title="Downloads">
+  <!-- Songs coming down from the Navidrome server: waiting, downloading, and how the last ones went -->
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,10">
+      <TextBlock Classes="label" Text="DOWNLOADS" />
+      <TextBlock x:Name="SummaryText" Classes="setting-help" Text="{Binding Summary}" />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,10,0,0">
+      <Button x:Name="StopAllButton" Classes="hw" Content="STOP ALL" Command="{Binding StopAllCommand}" IsEnabled="{Binding IsBusy}"
+              ToolTip.Tip="Take everything out of the queue and stop the songs coming down. A song a deck is waiting for finishes" />
+      <Button x:Name="RetryButton" Classes="hw" Content="RETRY FAILED" Command="{Binding RetryFailedCommand}" IsEnabled="{Binding HasFailed}" />
+      <Button x:Name="ClearButton" Classes="hw" Content="CLEAR FINISHED" Command="{Binding ClearFinishedCommand}" IsEnabled="{Binding HasFinished}" />
+      <Button x:Name="CloseButton" Classes="hw" Content="CLOSE" IsCancel="True" IsDefault="True" MinWidth="88" Click="OnCloseClick" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Top" x:Name="EmptyText" Classes="setting-help" TextWrapping="Wrap"
+               Text="Nothing yet. Right-click a playlist, a Navidrome folder or some songs and choose Cache for offline play, or queue a song, and it shows up here."
+               IsVisible="{Binding !HasItems}" />
+    <ListBox x:Name="DownloadList" ItemsSource="{Binding Items}" SelectionMode="Single">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:DownloadItem">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,3">
+            <StackPanel>
+              <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Classes="muted" FontSize="12" Text="{Binding Detail}" TextTrimming="CharacterEllipsis"
+                         IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <ProgressBar Height="3" Minimum="0" Maximum="100" Value="{Binding Percent}" Margin="0,4,0,0"
+                           Foreground="{StaticResource AccentBrush}" IsVisible="{Binding IsDownloading}" />
+            </StackPanel>
+            <TextBlock Grid.Column="1" Classes="mono muted" FontSize="12" Text="{Binding StateText}" VerticalAlignment="Center" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</Window>

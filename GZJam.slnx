@@ -3,11 +3,13 @@
     <Project Path="src/GZJam.App/GZJam.App.csproj" />
     <Project Path="src/GZJam.Audio/GZJam.Audio.csproj" />
     <Project Path="src/GZJam.Library/GZJam.Library.csproj" />
+    <Project Path="src/GZJam.Navidrome/GZJam.Navidrome.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GZJam.App.Tests/GZJam.App.Tests.csproj" />
     <Project Path="tests/GZJam.Audio.Tests/GZJam.Audio.Tests.csproj" />
     <Project Path="tests/GZJam.Library.Tests/GZJam.Library.Tests.csproj" />
+    <Project Path="tests/GZJam.Navidrome.Tests/GZJam.Navidrome.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/GZJam.DevTools/GZJam.DevTools.csproj" />

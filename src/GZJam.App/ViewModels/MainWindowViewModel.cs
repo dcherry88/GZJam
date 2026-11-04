@@ -50,7 +50,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             Queue.Items.CollectionChanged += (_, e) =>
             {
                 if (e.NewItems is not null)
+                {
                     Analysis.Prioritize(e.NewItems.Cast<QueueItem>().Select(i => i.Track));
+                    // Songs on a server download as they are queued, ahead of any playlist being cached, so a deck finds them here.
+                    RemoteSongs.Enqueue(e.NewItems.Cast<QueueItem>().Select(i => i.Track.Path), first: true);
+                }
             };
         }
         Library.SongsMoved += OnSongsMoved;
@@ -114,6 +118,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 foreach (DeckViewModel deck in Decks)
                     deck.ApplyEndFade();
         };
+        Library.SyncRemote = SyncNavidromeAsync;
+        Library.CacheFolder = CacheFolder;
+        Downloads = new DownloadsViewModel(this);
+        Downloads.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(DownloadsViewModel.Status) or nameof(DownloadsViewModel.Percent))
+                BackgroundChanged();
+        };
+        NavidromeConnection.Changed += OnNavidromeChanged;
 
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateClock());
         _playbackTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => Tick());
@@ -131,15 +144,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public AlbumArtCache Art { get; }
 
     /// <summary>What's happening in the background (copying songs out, scanning, then analyzing), for the top bar.</summary>
-    public string? BackgroundStatus => ExportStatus ?? Library.ScanStatus ?? Analysis?.Status;
+    public string? BackgroundStatus => ExportStatus ?? Library.ScanStatus ?? Downloads?.Status ?? Analysis?.Status;
     public double BackgroundPercent => ExportStatus is not null ? ExportPercent
-        : Library.ScanStatus is not null ? Library.ScanPercent : Analysis?.Percent ?? 0;
+        : Library.ScanStatus is not null ? Library.ScanPercent
+        : Downloads?.Status is not null ? Downloads.Percent : Analysis?.Percent ?? 0;
 
     /// <summary>What the background work is and why, for the top bar status's tooltip (#139).</summary>
     public string? BackgroundTip => _export is { } export
         ? $"Copying the songs to {export.Folder}. Your own files aren't changed."
         : Library.ScanStatus is not null
         ? "Reading the tags (title, artist, BPM…) of the songs in your music folders. Your files aren't changed."
+        : Downloads?.Status is not null
+        ? "Songs coming down from the Navidrome server, to play with no network. The Downloads button shows the list."
         : Analysis?.StatusTip;
 
     private void BackgroundChanged()
@@ -1305,6 +1321,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
         }
 
+        // A song on a server is fetched first, off the UI thread, so the window doesn't wait on it.
+        if (RemoteSongs.IsRemote(track.Path) && !RemoteSongs.IsCached(track.Path))
+        {
+            string getting = $"Getting \"{track.DisplayTitle}\" from the server…";
+            ShowNotice(getting, seconds: 130);
+            try
+            {
+                await Task.Run(() => RemoteSongs.Prepare(track.Path));
+            }
+            catch (AudioException ex)
+            {
+                Log.Error($"Couldn't get {track.Path}", ex);
+                ShowNotice($"Couldn't load {track.DisplayTitle}: {ex.Message}");
+                return false;
+            }
+            if (Notice == getting)
+                Notice = null;   // it's here: nothing more to say
+        }
+
         // With auto-play on, the deck waiting to play is the front of the queue (#261).
         Track? bumped = AutoPlay?.IsWaiting(deck) == true ? deck.Track : null;
         try
@@ -1533,6 +1568,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _clock.Stop();
         _playbackTimer.Stop();
+        NavidromeConnection.Changed -= OnNavidromeChanged;
+        Downloads.Dispose();
         Library.Dispose();
         Art.Dispose();
         Analysis?.Dispose();   // stops decoding before BASS goes away

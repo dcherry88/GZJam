@@ -465,6 +465,20 @@ public sealed partial class LibraryDatabase
         """
             ALTER TABLE trims ADD COLUMN fade_out INTEGER NOT NULL DEFAULT 0;
             """,
+
+        // 25: Which playlists are copies of a server's (Navidrome), so a sync updates them rather
+        // than making them again (see SyncRemotePlaylists). remote_name is the server's name at the
+        // last sync: the playlist is renamed only when the server's name changes, so a rename here
+        // sticks. Only adds: an older GZJam reads the library fine and sees them as playlists.
+        """
+            CREATE TABLE remote_playlists (
+                playlist_id INTEGER PRIMARY KEY REFERENCES playlists(id) ON DELETE CASCADE,
+                source      TEXT NOT NULL,
+                remote_id   TEXT NOT NULL,
+                remote_name TEXT NOT NULL,
+                UNIQUE (source, remote_id)
+            );
+            """,
     ];
 
     // ───────────── Roots ─────────────

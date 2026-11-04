@@ -16,8 +16,17 @@ public sealed record StoredAnalysis(int Version, TimeSpan Length, TimeSpan Audib
 /// <summary>Identifies one version of a file on disk: when it changes, its analysis is stale.</summary>
 public readonly record struct FileVersion(long Size, long ModifiedTicks)
 {
+    /// <summary>
+    /// The version of a song that isn't a file here (one on a server), or null for any other path.
+    /// Set by the app. Such a song has nothing on disk to stamp, so it is always the same version:
+    /// its analysis is made once.
+    /// </summary>
+    public static Func<string, FileVersion?>? Remote { get; set; }
+
     public static FileVersion? Of(string path)
     {
+        if (Remote?.Invoke(path) is { } remote)
+            return remote;
         var file = new FileInfo(path);
         return file.Exists ? new FileVersion(file.Length, file.LastWriteTimeUtc.Ticks) : null;
     }
@@ -190,7 +199,8 @@ public sealed partial class LibraryDatabase
 
     /// <summary>
     /// Library tracks with no analysis from analyzer <paramref name="version"/> (or later) for the
-    /// file as it is now, in folder order.
+    /// file as it is now, in folder order. Songs on a server are left out: each would be downloaded
+    /// to be analyzed, so they are analyzed when they are played or queued.
     /// </summary>
     public IReadOnlyList<PendingAnalysis> GetPendingAnalysis(int version)
     {
@@ -198,7 +208,7 @@ public sealed partial class LibraryDatabase
         using var cmd = c.CreateCommand();
         cmd.CommandText = $"""
             SELECT t.path, t.file_size, t.modified_utc, t.bpm IS NOT NULL, a.path IS NOT NULL FROM tracks t {JoinAnalysis}
-            WHERE a.path IS NULL OR a.version < $version
+            WHERE (a.path IS NULL OR a.version < $version) AND t.path NOT LIKE '%://%'
             ORDER BY t.root_id, t.folder COLLATE NOCASE, t.track_number, t.file_name COLLATE NOCASE;
             """;
         cmd.Parameters.AddWithValue("$version", version);

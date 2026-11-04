@@ -113,7 +113,7 @@
     <Setter Property="Width" Value="44" />
     <Setter Property="Height" Value="44" />
   </Style>
-  <Style Selector="Button.output-chip">
+  <Style Selector="Button.output-chip, Button.download-chip">
     <Setter Property="Padding" Value="12,10" />
   </Style>
   <Style Selector="ToggleButton.switch">

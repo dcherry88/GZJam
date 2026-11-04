@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         RevealMenuItem.Header = FileManager.RevealLabel;
         SetUpSongInfo();
+        SetUpDownloads();
 
         TrackGrid.AddHandler(PointerPressedEvent, OnGridPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         TrackGrid.AddHandler(KeyDownEvent, OnGridKeyDown, RoutingStrategies.Tunnel);
@@ -278,6 +279,20 @@ public partial class MainWindow : Window
         // Ctrl+I (Cmd+I, like the Mac's Get Info): the selected song's info (#129).
         if (e.Key == Key.I && e.KeyModifiers == CommandModifier && ShowSelectedSongInfo())
         {
+            e.Handled = true;
+            return;
+        }
+        // Ctrl+Shift+J: the downloads from the Navidrome server.
+        if (e.Key == Key.J && e.KeyModifiers == (CommandModifier | KeyModifiers.Shift))
+        {
+            ShowDownloadsWindow();
+            e.Handled = true;
+            return;
+        }
+        // Ctrl+Shift+N: the Navidrome server's songs.
+        if (e.Key == Key.N && e.KeyModifiers == (CommandModifier | KeyModifiers.Shift))
+        {
+            ShowNavidrome();
             e.Handled = true;
             return;
         }

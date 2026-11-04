@@ -481,6 +481,20 @@ public sealed partial class LibraryViewModel : ObservableObject, IDisposable
         return (rootPath, f.Node.RelativePath);
     }
 
+    /// <summary>Syncs with the server whose songs are in the library (the Navidrome folder's menu); set by the main view model.</summary>
+    public Func<Task>? SyncRemote { get; set; }
+
+    /// <summary>Fetches the songs under a folder (root id, folder, its name) from the server ahead of time; set by the main view model.</summary>
+    public Action<long, string, string>? CacheFolder { get; set; }
+
+    /// <summary>The library's folders and songs have changed behind its back (a sync with a server): show them.</summary>
+    public void ReloadAfterRemoteSync()
+    {
+        RefreshTree();
+        RestorePendingSelection();
+        RunSearch("remote songs synced");
+    }
+
     public async Task AddRootAsync(string path)
     {
         LibraryRoot root = _database.AddRoot(path);
@@ -506,6 +520,8 @@ public sealed partial class LibraryViewModel : ObservableObject, IDisposable
 
     private async Task ScanAsync(LibraryRoot root, bool readAllTags = false)
     {
+        if (root.IsRemote)
+            return;   // a server's songs are synced with it, not scanned (see LibraryDatabase.SyncRemoteTracks)
         await _scanLock.WaitAsync();
         try
         {

@@ -265,6 +265,7 @@ public partial class MainWindow
         LabelsMenu.Fill(TrackLabelsMenu, Vm, tracks);
         BpmMenu.Fill(TrackBpmMenu, Vm, tracks);
         FillPlaylistItems(tracks);
+        FillCacheItem(TrackCacheItem, tracks);
     }
 
     private void OnQueueMenuOpening()
@@ -279,6 +280,7 @@ public partial class MainWindow
         LabelsMenu.Fill(QueueLabelsMenu, Vm, tracks);
         BpmMenu.Fill(QueueBpmMenu, Vm, tracks);
         PlaylistsMenu.Fill(QueuePlaylistsMenu, Vm, tracks);
+        FillCacheItem(QueueCacheItem, tracks);
         FillQueueColumnsMenu();
     }
 

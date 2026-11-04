@@ -123,6 +123,8 @@ public sealed class AlbumArtCache : IDisposable
     /// <summary>A song's art: its key and the small copy (from the art folder, made first if need be).</summary>
     private (string? Key, Bitmap? Bitmap) Load(string path)
     {
+        if (Navidrome.NavidromeClient.IsNavidromePath(path))
+            return (null, null);   // no file to take a picture from (a later step: the server's cover art)
         if (FileVersion.Of(path) is not { } version)
             return (null, null);
         long folderTicks = FolderTicks(path);

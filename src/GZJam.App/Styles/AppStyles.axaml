@@ -300,6 +300,19 @@
     <Setter Property="Margin" Value="0,0,5,0" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
+  <!-- A song from the server that is on this computer: an arrow into a tray, in blue (the green check is "played tonight") -->
+  <Style Selector="Path.offline-mark">
+    <Setter Property="Data" Value="M12 3 L12 14 M7.5 10 L12 14.5 L16.5 10 M5 20 L19 20" />
+    <Setter Property="Stroke" Value="#5AA9FF" />
+    <Setter Property="StrokeThickness" Value="2.4" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="11" />
+    <Setter Property="Margin" Value="0,0,5,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
   <Style Selector="Path.missing-mark">
     <Setter Property="Data" Value="{StaticResource IconMissing}" />
     <Setter Property="Stroke" Value="{StaticResource TextBrush}" />
@@ -918,7 +931,7 @@
   </Style>
 
   <!-- Top bar -->
-  <Style Selector="Button.output-chip">
+  <Style Selector="Button.output-chip, Button.download-chip">
     <Setter Property="Background" Value="{StaticResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
     <Setter Property="BorderThickness" Value="1" />

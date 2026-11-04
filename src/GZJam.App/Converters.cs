@@ -66,6 +66,16 @@ public static class Converters
     /// <summary>Played tonight: dimmed, so it isn't played again by mistake.</summary>
     public static readonly IValueConverter Dimmed = new FuncValueConverter<bool, double>(played => played ? 0.4 : 1);
 
+    private static readonly Avalonia.Media.IBrush s_plainIcon = Avalonia.Media.Brush.Parse("#8F9BB0");
+    private static readonly Avalonia.Media.IBrush s_serverIcon = Avalonia.Media.Brush.Parse("#5AA9FF");
+
+    /// <summary>A playlist's icon: the usual gray, or blue for a copy of a server's playlist (it follows the server).</summary>
+    public static readonly IValueConverter ServerIcon = new FuncValueConverter<bool, Avalonia.Media.IBrush>(remote => remote ? s_serverIcon : s_plainIcon);
+
+    /// <summary>A song from the server that is on this computer (first value: its path; the second, <see cref="OfflineIndex.Version"/>, only says when to look again).</summary>
+    public static readonly IMultiValueConverter IsOffline =
+        new FuncMultiValueConverter<object?, bool>(values => values.FirstOrDefault() is string path && GZJam.Audio.RemoteSongs.IsCached(path));
+
     /// <summary>A deck's color by its label ("1": Deck1Brush), for what stands in for a deck (#177).</summary>
     public static readonly IValueConverter DeckAccent = new FuncValueConverter<string?, Avalonia.Media.IBrush?>(label =>
         label is not null && Avalonia.Application.Current is { } app

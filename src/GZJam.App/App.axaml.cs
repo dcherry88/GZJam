@@ -96,6 +96,7 @@ public partial class App : Application
     private static void AfterStart(MainWindowViewModel viewModel)
     {
         viewModel.KeepsAutomaticBackups = true;
+        _ = NavidromeLibrary.SyncQuietlyAsync(viewModel);   // the server's songs, if one is set up
         if (s_restored is { } info)
             viewModel.ShowNotice($"The backup from {info.Created:d MMMM yyyy} is restored."
                 + (info.Moved is { Count: > 0 } moved ? $" Its music is in {string.Join(", ", moved)}." : ""), seconds: 15);
@@ -224,6 +225,7 @@ public partial class App : Application
     /// <summary>Opens the library and starts audio.</summary>
     private static MainWindowViewModel CreateViewModel(AppSettings settings)
     {
+        NavidromeConnection.Configure();
         var database = new LibraryDatabase(AppPaths.LibraryDatabase);
         var (audio, mix, audioError) = StartAudio();
         return new MainWindowViewModel(database, settings, audio, mix, audioError);

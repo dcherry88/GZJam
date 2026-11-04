@@ -3,7 +3,12 @@ using Microsoft.Data.Sqlite;
 namespace GZJam.Library;
 
 /// <summary>A playlist: <paramref name="Count"/> entries (songs, a song perhaps more than once), <paramref name="Length"/> in all.</summary>
-public sealed record PlaylistInfo(long Id, string Name, int Count, TimeSpan Length);
+/// <param name="IsRemote">A copy of a server's playlist (Navidrome): it follows the server, and changes made to it are undone at the next sync.</param>
+public sealed record PlaylistInfo(long Id, string Name, int Count, TimeSpan Length, bool IsRemote = false)
+{
+    /// <summary>The playlist's name for a tooltip, saying where it comes from if it's a server's.</summary>
+    public string Tip => IsRemote ? $"{Name}\nFrom Navidrome: it follows the server" : Name;
+}
 
 /// <summary>
 /// Playlists: a set planned before the night, in order, saved by name. Unlike labels (what a song
@@ -18,14 +23,15 @@ public sealed partial class LibraryDatabase
         using var c = Open();
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
-            SELECT p.id, p.name, COUNT(e.id), COALESCE(SUM(t.duration_ms), 0)
+            SELECT p.id, p.name, COUNT(e.id), COALESCE(SUM(t.duration_ms), 0), rp.playlist_id IS NOT NULL
             FROM playlists p LEFT JOIN playlist_entries e ON e.playlist_id = p.id LEFT JOIN tracks t ON t.path = e.path
+                 LEFT JOIN remote_playlists rp ON rp.playlist_id = p.id
             GROUP BY p.id ORDER BY p.name COLLATE NOCASE;
             """;
         using var r = cmd.ExecuteReader();
         var playlists = new List<PlaylistInfo>();
         while (r.Read())
-            playlists.Add(new PlaylistInfo(r.GetInt64(0), r.GetString(1), r.GetInt32(2), TimeSpan.FromMilliseconds(r.GetInt64(3))));
+            playlists.Add(new PlaylistInfo(r.GetInt64(0), r.GetString(1), r.GetInt32(2), TimeSpan.FromMilliseconds(r.GetInt64(3)), r.GetBoolean(4)));
         return playlists;
     }
 

@@ -61,7 +61,8 @@ public sealed partial class MainWindowViewModel
             return;
 
         // The tags are read off the UI thread, as for files dragged in.
-        var found = await Task.Run(() => paths.Where(File.Exists).ToDictionary(p => p, _database.TrackForFile));
+        var found = await Task.Run(() => paths.Select(p => (Path: p, Track: Restorable(p))).Where(x => x.Track is not null)
+            .ToDictionary(x => x.Path, x => x.Track!));
         int missing = paths.Count - found.Count;
 
         var queued = saved.Queue.Select(p => found.GetValueOrDefault(p)).OfType<Track>().ToList();
@@ -104,6 +105,15 @@ public sealed partial class MainWindowViewModel
         if (crashed || queued.Count > 0 || onDecks > 0 || missing > 0)
             ShowNotice(what, seconds: crashed ? 12 : 6);
     }
+
+    /// <summary>
+    /// A saved song as a track: a file that is still there, or a song from a server (<c>navidrome://</c>)
+    /// the library knows from its last sync. Null if it can't be found.
+    /// </summary>
+    private Track? Restorable(string path) =>
+        File.Exists(path) ? _database.TrackForFile(path)
+        : path.Contains("://", StringComparison.Ordinal) ? _database.FindTrack(path)
+        : null;
 
     private void OnNightChanged(object? sender, NotifyCollectionChangedEventArgs e) => _nightChanged = true;
 

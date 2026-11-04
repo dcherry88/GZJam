@@ -294,6 +294,17 @@ public sealed class Track : INotifyPropertyChanged
         Year = Year, TrackNumber = TrackNumber, TagBpm = TagBpm, Tags = Tags, Duration = Duration, IsMissing = IsMissing,
     };
 
+    /// <summary>
+    /// This song as a row of a remote root (<see cref="LibraryRoot.IsRemote"/>). It has no file to
+    /// stamp, so its size and date are zero: the same "version" every time, so its analysis is made once.
+    /// </summary>
+    internal Track InRemoteRoot(long rootId) => new()
+    {
+        Id = Id, RootId = rootId, Path = Path, Folder = Folder, FileName = FileName,
+        Title = Title, Artist = Artist, Album = Album, AlbumArtist = AlbumArtist, Genre = Genre, Comment = Comment, Grouping = Grouping,
+        Year = Year, TrackNumber = TrackNumber, TagBpm = TagBpm, Tags = Tags, Duration = Duration,
+    };
+
     internal Track InPlaylist(long entryId, int number)
     {
         (PlaylistEntryId, PlaylistNumber) = (entryId, number);
@@ -311,9 +322,23 @@ public sealed class Track : INotifyPropertyChanged
 /// <summary>A folder added to the library by the user.</summary>
 public sealed record LibraryRoot(long Id, string Path)
 {
-    public string Name => System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) is { Length: > 0 } name
-        ? name
-        : Path;
+    /// <summary>
+    /// The songs here live on a server, not in a folder (<c>navidrome://</c>): they are filled in by
+    /// a sync with it rather than a scan, and are never watched or analyzed in the background.
+    /// </summary>
+    public bool IsRemote => Path.Contains("://", StringComparison.Ordinal);
+
+    public string Name => IsRemote ? RemoteName(Path)
+        : System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) is { Length: > 0 } name
+            ? name
+            : Path;
+
+    /// <summary>"Navidrome" for <c>navidrome://</c>.</summary>
+    private static string RemoteName(string path)
+    {
+        string scheme = path[..path.IndexOf("://", StringComparison.Ordinal)];
+        return scheme.Length == 0 ? path : char.ToUpperInvariant(scheme[0]) + scheme[1..];
+    }
 }
 
 /// <summary>Limits a search to a folder and everything beneath it.</summary>

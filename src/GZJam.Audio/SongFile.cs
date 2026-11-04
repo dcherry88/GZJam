@@ -25,6 +25,8 @@ internal static class SongFile
     /// <summary>A decoding stream for <paramref name="path"/>. Throws, saying why, if it can't be played.</summary>
     public static int Open(string path)
     {
+        if (RemoteSongs.IsRemote(path))
+            return Open(RemoteSongs.LocalFile(path));   // a song on a server: its downloaded copy
         if (Mp4Damaged(path))
             throw AudioException.Damaged();
         int stream = Bass.CreateStream(path, 0, 0, Flags);

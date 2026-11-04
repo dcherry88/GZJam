@@ -36,6 +36,9 @@ ManagedBass: BASS for .NET
 CommunityToolkit.Mvvm: view models
   Copyright (c) .NET Foundation and Contributors. MIT license.
 
+System.Security.Cryptography.ProtectedData: keeps a Navidrome password encrypted on Windows
+  Copyright (c) .NET Foundation and Contributors. MIT license. https://dot.net
+
 ################################################################################################
 LICENSE TEXTS
 ################################################################################################

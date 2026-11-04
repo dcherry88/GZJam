@@ -169,6 +169,29 @@ public partial class MainWindow
             Vm.PlayPlaylist(playlist, shuffled: true);
     }
 
+    private void OnCachePlaylistClick(object? sender, RoutedEventArgs e)
+    {
+        if (PlaylistOf(sender) is { } playlist)
+            Vm.CachePlaylist(playlist);
+    }
+
+    private void OnRefreshPlaylistsClick(object? sender, RoutedEventArgs e) => _ = Vm.SyncNavidromeAsync();
+
+    /// <summary>The songs' menu item: fetch the selected songs from the server ahead of time.</summary>
+    private void OnCacheSelectedClick(object? sender, RoutedEventArgs e) => Vm.CacheForOffline(SelectedTracks(), "The selected songs");
+
+    private void OnCacheQueueSelectedClick(object? sender, RoutedEventArgs e) =>
+        Vm.CacheForOffline(SelectedQueueItems().Select(i => i.Track), "The selected songs");
+
+    /// <summary>Shows "Cache for offline play" on a songs' menu only where one of the songs comes from the server, and says how many aren't here yet.</summary>
+    private void FillCacheItem(MenuItem item, IReadOnlyList<Track> tracks)
+    {
+        int notHere = Vm.NotHere(tracks);
+        bool fromServer = tracks.Any(t => GZJam.Audio.RemoteSongs.IsRemote(t.Path));
+        item.IsVisible = fromServer;
+        item.IsEnabled = notHere > 0;
+        item.Header = notHere > 0 ? $"Cache for offline play ({notHere} {(notHere == 1 ? "song" : "songs")})" : "On this computer already";
+    }
     private void OnRenamePlaylistItemClick(object? sender, RoutedEventArgs e)
     {
         if (PlaylistOf(sender) is { } playlist)
