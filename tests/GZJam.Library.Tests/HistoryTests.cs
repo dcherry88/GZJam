@@ -121,7 +121,7 @@ public sealed class HistoryTests : IDisposable
                 DROP TABLE art;                               -- added by upgrade 16
                 ALTER TABLE eq DROP COLUMN mid_hz;            -- added by upgrade 17
                 ALTER TABLE eq DROP COLUMN even;
-                DROP TABLE remote_playlists;                  -- added by upgrade 23 (it points at playlists, so it goes first)
+                DROP TABLE remote_playlists;                  -- added by upgrade 25 (it points at playlists, so it goes first)
                 DROP TABLE playlist_entries;                  -- added by upgrade 18
                 DROP TABLE playlists;
                 DROP TABLE schema_compat;                     -- added by upgrade 19

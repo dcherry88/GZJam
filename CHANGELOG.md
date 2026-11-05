@@ -15,6 +15,8 @@ picture, this is what changed. The whole routine: docs/RELEASING.md.
 
 New:
 
+- **Music from a Navidrome server:** Settings > Navidrome takes the server's address and login, and its songs appear in a *Navidrome* folder of the library, searched, hearted and labelled like any other. Its playlists come into the playlist list (*Refresh* reads the server again). Songs are downloaded whole to a folder on the computer (you choose it) and play like files, so the dance never depends on the Wi-Fi; right-click a playlist, folder or songs > *Cache for offline play*, and the *Downloads* button in the top bar shows the queue ([#184](https://github.com/GemZombie/GZJam/issues/184), [#204](https://github.com/GemZombie/GZJam/issues/204)). How it fits together: [docs/NAVIDROME.md](docs/NAVIDROME.md).
+
 - **Fade a song out where you choose:** for a song with a long or repetitive outro, right-click
   the waveform › *Song ends* › *Start fade-out here* (or *at the playhead*, found by ear). The
   song plays on from there, fading out over your fade-out length (Settings › Decks), rather than

@@ -1,7 +1,8 @@
-# Navidrome in GZJam (private fork)
+# Navidrome in GZJam
 
-This fork plays music from a self-hosted [Navidrome](https://www.navidrome.org/) server. It is not
-part of upstream GZJam (github.com/GemZombie/GZJam) and isn't meant to be sent there.
+GZJam plays music from a self-hosted [Navidrome](https://www.navidrome.org/) server (or another
+Subsonic/OpenSubsonic one): [#184](https://github.com/GemZombie/GZJam/issues/184),
+[#204](https://github.com/GemZombie/GZJam/issues/204).
 
 ## What it does
 
@@ -24,7 +25,7 @@ part of upstream GZJam (github.com/GemZombie/GZJam) and isn't meant to be sent t
 |---|---|
 | `src/GZJam.Navidrome` | the Subsonic/OpenSubsonic client (token + salt login, search, playlists) |
 | `src/GZJam.Audio/RemoteSongs.cs` | the download queue and the cache of fetched songs |
-| `src/GZJam.Library/LibraryDatabase.Remote*.cs` | the server's songs and playlists in the library (database upgrade 23) |
+| `src/GZJam.Library/LibraryDatabase.Remote*.cs` | the server's songs and playlists in the library (database upgrade 25) |
 | `src/GZJam.App/Navidrome*.cs`, `ViewModels/Navidrome*`, `Downloads*` | login storage, sync, settings, windows |
 
 A song's path is `navidrome://<id>`. Everything the DJ gives a song (hearts, labels, cues, EQ,
@@ -33,19 +34,6 @@ playlist places, History) is kept by that path.
 The login is kept in `navidrome.json` beside the settings, never in `settings.json` (library
 backups carry that). On Windows the password is encrypted for the Windows user (DPAPI); on a Mac
 or Linux it is in a file only the user can read, not encrypted.
-
-## Building
-
-- `dotnet build GZJam.slnx -c Release -p:TreatWarningsAsErrors=true`, then `dotnet test`.
-- On a Windows computer with .NET SDK 10.0.403, **add `-p:ApplicationIcon=`** to every build, run
-  and test: the app icon makes `GZJam.dll` invalid there ("Bad IL format"), upstream's `main`
-  included. It only drops the .exe's icon.
-- While GZJam is running, a Release build can't overwrite its files: build `-c Debug` or close it.
-- **Mac (Apple Silicon):** `packaging/macos/build-local.sh` makes the `.dmg`. On the Mac, with the
-  .NET 10 SDK: `bash packaging/macos/build-local.sh`. Without the SDK, publish on another
-  computer (`dotnet publish src/GZJam.App -c Release --self-contained -r osx-arm64`) and run
-  `bash packaging/macos/build-local.sh --from <that folder> <version>` on the Mac. It is signed ad
-  hoc, so the first launch needs right-click > Open.
 
 ## Not done
 
