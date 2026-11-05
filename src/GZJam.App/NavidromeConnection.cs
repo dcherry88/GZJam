@@ -80,7 +80,9 @@ internal static class NavidromeConnection
 
     /// <summary>A client for this login; the caller disposes it. Throws <see cref="ArgumentException"/> for an address that isn't one.</summary>
     public static NavidromeClient CreateClient(NavidromeAccount account) =>
-        TryParseUrl(account.Url, out Uri? server) ? new NavidromeClient(server, account.User, account.Password)
+        TryParseUrl(account.Url, out Uri? server)
+            ? account.Password.Length > 0 ? new NavidromeClient(server, account.User, account.Password)
+                : new NavidromeClient(server, account.User, account.Salt, account.Token)
             : throw new ArgumentException("Not a web address", nameof(account));
 
     /// <summary>

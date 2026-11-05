@@ -122,7 +122,9 @@ public sealed partial class NavidromeViewModel(MainWindowViewModel main, Navidro
     {
         if (Selected is not { } row)
             return;
-        // PlaySongAsync fetches the song first, off the UI thread, and says so.
+        // Asking for the song here is asking for its download.
+        if (!await DownloadAsync(row))
+            return;
         if (await main.PlaySongAsync(Known(row)))
             Status = $"\"{row.Title}\" is on a deck.";
         else

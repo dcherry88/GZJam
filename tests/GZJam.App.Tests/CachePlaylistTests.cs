@@ -97,6 +97,59 @@ public sealed class CachePlaylistTests : IDisposable
     private static void WaitUntilCached(params string[] ids) =>
         AppHarness.WaitFor(() => ids.All(i => RemoteSongs.IsCached("navidrome://" + i)), TimeSpan.FromSeconds(20));
 
+    /// <summary>Loads a song on a deck, letting the window's thread work while it waits for the download.</summary>
+    private static bool Load(AppHarness app, ViewModels.DeckViewModel deck, Track song)
+    {
+        var task = app.ViewModel.LoadToDeckAsync(deck, song);
+        AppHarness.Await(task);
+        return task.Result;
+    }
+    [AvaloniaFact]
+    public void Songs_are_not_fetched_by_themselves_unless_Settings_say_so()
+    {
+        using var app = new AppHarness();
+        Assert.False(app.Settings.NavidromeAutoCache);   // off to start with
+        Assert.False(app.ViewModel.Settings.Navidrome.AutoCache);
+        Track song = Song("a");
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("navidrome"), [song]);
+
+        // Queued: nothing is downloaded.
+        app.ViewModel.Queue.Add([song]);
+        AppHarness.Settle(300);
+        Assert.Equal(0, _requests);
+        Assert.False(RemoteSongs.IsCached(song.Path));
+
+        // Put on a deck: refused, with the way to get it, and still nothing downloaded.
+        var deck = app.ViewModel.Deck1!;
+        Assert.False(Load(app, deck, song));
+        Assert.Contains("isn't on this computer yet", app.ViewModel.Notice);
+        Assert.Equal(0, _requests);
+        Assert.False(deck.HasTrack);
+
+        // Asked for by hand (the playlist's menu), the song is fetched, and then it loads.
+        app.ViewModel.CacheForOffline([song], "songs");
+        WaitUntilCached("a");
+        Assert.True(Load(app, deck, song));
+        Assert.True(deck.HasTrack);
+    }
+
+    [AvaloniaFact]
+    public void With_the_setting_on_a_queued_song_is_fetched_and_a_deck_gets_it_by_itself()
+    {
+        using var app = new AppHarness();
+        app.ViewModel.Settings.Navidrome.AutoCache = true;
+        Assert.True(app.Settings.NavidromeAutoCache);   // kept with the settings
+        Track queued = Song("q"), loaded = Song("l");
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("navidrome"), [queued, loaded]);
+
+        app.ViewModel.Queue.Add([queued]);
+        WaitUntilCached("q");
+
+        var deck = app.ViewModel.Deck1!;
+        Assert.True(Load(app, deck, loaded));
+        Assert.True(RemoteSongs.IsCached(loaded.Path));
+        Assert.True(deck.HasTrack);
+    }
     [AvaloniaFact]
     public void A_playlist_from_the_server_is_marked_and_a_menu_can_say_how_many_songs_are_not_here_yet()
     {

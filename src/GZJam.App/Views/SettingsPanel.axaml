@@ -379,6 +379,17 @@
             </Border>
             <TextBlock Classes="settings-group" Text="DOWNLOADED SONGS" Margin="0,18,0,0" />
             <Border Classes="settings-card">
+              <StackPanel>
+              <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Classes="setting" Text="Get songs by themselves" />
+                  <TextBlock Classes="setting-help" TextWrapping="Wrap"
+                             Text="Off: only the songs you ask for are downloaded (right-click a playlist, folder or songs > Cache for offline play), and a song that isn't on this computer yet won't load. On: a song is downloaded when it is queued or loaded, and kept." />
+                </StackPanel>
+                <ToggleButton x:Name="NavidromeAutoCacheSwitch" Grid.Column="1" Classes="switch" VerticalAlignment="Center" Margin="16,0,0,0"
+                              IsChecked="{Binding AutoCache}" />
+              </Grid>
+              <Border Classes="settings-rule" />
               <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
                   <TextBlock Classes="setting" Text="Keep downloaded songs in" />
@@ -394,10 +405,11 @@
                           ToolTip.Tip="Show the folder in your file manager" />
                 </StackPanel>
               </Grid>
+              </StackPanel>
             </Border>
             <TextBlock Classes="setting-help" Margin="2,10,2,0" TextWrapping="Wrap" Text="{Binding WhereItIsKept}" />
             <TextBlock Classes="setting-help" Margin="2,6,2,0" TextWrapping="Wrap"
-                       Text="The server's songs appear in the Navidrome folder of the library, and its playlists in the playlist list (in blue). A song is fetched from the server when it is queued or loaded, and kept on this computer, so it plays again without the server. Right-click a playlist to fetch all of it ahead of a night with no network." />
+                       Text="The server's songs appear in the Navidrome folder of the library, and its playlists in the playlist list (in blue). A song has to be on this computer to play, so it plays without the server. Right-click a playlist to fetch all of it ahead of a night with no network." />
           </StackPanel>
         </ScrollViewer>
 

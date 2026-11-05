@@ -50,15 +50,31 @@ public sealed partial class NavidromeSettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PasswordHelp), nameof(CanDisconnect))]
     public partial bool HasSavedPassword { get; private set; }
 
+    /// <summary>Fetch songs by themselves when they're queued or loaded (see <see cref="AppSettings.NavidromeAutoCache"/>).</summary>
+    public bool AutoCache
+    {
+        get => _owner.PanelSettings.NavidromeAutoCache;
+        set
+        {
+            if (value == _owner.PanelSettings.NavidromeAutoCache)
+                return;
+            _owner.PanelSettings.NavidromeAutoCache = value;
+            OnPropertyChanged();
+            Log.Info($"Navidrome: songs {(value ? "are" : "are not")} fetched by themselves");
+        }
+    }
+
     public bool CanAct => !IsBusy;
 
     public bool CanDisconnect => !IsBusy && NavidromeConnection.Account is not null;
 
     public string PasswordHelp => Password.Length > 0 ? "" : HasSavedPassword ? "A password is saved. Leave this empty to keep it." : "";
 
-    public string WhereItIsKept => OperatingSystem.IsWindows()
-        ? "The password is kept encrypted for your Windows user on this computer. It is not in GZJam's settings or in library backups."
-        : "The password is kept in a file only you can read. It is not in GZJam's settings or in library backups.";
+    public string WhereItIsKept => "GZJam doesn't keep your password: it keeps a code made from it, which only works for logging in to this server's music app. "
+        + (OperatingSystem.IsWindows()
+            ? "It is encrypted for your Windows user on this computer."
+            : "It is in a file only you can read.")
+        + " It is not in GZJam's settings or in library backups.";
 
     /// <summary>Shows the login in use (or the one saved, if its password can't be read here).</summary>
     internal void ShowCurrent()
@@ -67,10 +83,10 @@ public sealed partial class NavidromeSettingsViewModel : ObservableObject
         ServerUrl = account?.Url ?? "";
         UserName = account?.User ?? "";
         Password = "";
-        HasSavedPassword = account is { Password.Length: > 0 };
+        HasSavedPassword = account is { HasLogin: true };
         Status = account is null ? "No server is set up."
             : NavidromeConnection.FromEnvironment ? "Using the login in GZJam's environment variables. Save one here to use it instead."
-            : account.Password.Length == 0 ? "The saved password can't be read on this computer: type it again."
+            : !account.HasLogin ? "The saved login can't be read on this computer: type the password again."
             : "";
         OnPropertyChanged(nameof(CanDisconnect));
     }
@@ -82,10 +98,13 @@ public sealed partial class NavidromeSettingsViewModel : ObservableObject
             return (null, "The server address isn't a web address (like https://music.example.com).");
         if (string.IsNullOrWhiteSpace(UserName))
             return (null, "Type the user name.");
-        string password = Password.Length > 0 ? Password : NavidromeConnection.Account?.Password ?? "";
-        if (password.Length == 0)
+        string url = server.ToString().TrimEnd('/'), user = UserName.Trim();
+        if (Password.Length > 0)
+            return (new NavidromeAccount(url, user, Password), null);
+        // Nothing typed: the saved login stays (it can't be told the password again).
+        if (NavidromeConnection.Account is not { HasLogin: true } saved)
             return (null, "Type the password.");
-        return (new NavidromeAccount(server.ToString().TrimEnd('/'), UserName.Trim(), password), null);
+        return (new NavidromeAccount(url, user, saved.Password, saved.Salt, saved.Token), null);
     }
 
     /// <summary>Asks the server who it is with the login as typed. Returns what it said, or null (and says why in <see cref="Status"/>).</summary>
@@ -144,7 +163,8 @@ public sealed partial class NavidromeSettingsViewModel : ObservableObject
                 Status += " Not saved.";
                 return;
             }
-            NavidromeCredentials.Save(account);
+            // What is kept (and used from now on) is the salt and token: the password is forgotten.
+            account = NavidromeCredentials.Save(account);
             NavidromeConnection.Apply(account);
             Log.Info($"Navidrome login saved for {account.User}");
             Password = "";

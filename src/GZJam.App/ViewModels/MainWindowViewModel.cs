@@ -52,8 +52,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (e.NewItems is not null)
                 {
                     Analysis.Prioritize(e.NewItems.Cast<QueueItem>().Select(i => i.Track));
-                    // Songs on a server download as they are queued, ahead of any playlist being cached, so a deck finds them here.
-                    RemoteSongs.Enqueue(e.NewItems.Cast<QueueItem>().Select(i => i.Track.Path), first: true);
+                    // With Settings › Navidrome › "Get songs by themselves" on, songs on a server download as they are
+                    // queued, ahead of any playlist being cached, so a deck finds them here.
+                    if (settings.NavidromeAutoCache)
+                        RemoteSongs.Enqueue(e.NewItems.Cast<QueueItem>().Select(i => i.Track.Path), first: true);
                 }
             };
         }
@@ -1324,6 +1326,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         // A song on a server is fetched first, off the UI thread, so the window doesn't wait on it.
         if (RemoteSongs.IsRemote(track.Path) && !RemoteSongs.IsCached(track.Path))
         {
+            if (!_settings.NavidromeAutoCache)
+            {
+                // Songs are downloaded when the DJ asks (the playlist's menu, the Navidrome window), not by playing them.
+                Log.Info($"Deck {deck.Label}: \"{track.DisplayTitle}\" isn't on this computer and songs aren't fetched by themselves");
+                ShowNotice($"\"{track.DisplayTitle}\" isn't on this computer yet. Right-click it > Cache for offline play, or turn on Settings > Navidrome > Get songs by themselves.", seconds: 8);
+                return false;
+            }
             string getting = $"Getting \"{track.DisplayTitle}\" from the server…";
             ShowNotice(getting, seconds: 130);
             try

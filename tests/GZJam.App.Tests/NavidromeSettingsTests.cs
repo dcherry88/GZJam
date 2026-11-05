@@ -31,16 +31,44 @@ public sealed class NavidromeSettingsTests : IDisposable
     // ───────────── The saved login ─────────────
 
     [Fact]
-    public void A_saved_login_comes_back_and_the_password_is_not_readable_in_the_file()
+    public void A_saved_login_is_a_salt_and_token_and_the_password_is_nowhere_in_the_file()
     {
-        NavidromeCredentials.Save(new NavidromeAccount("https://music.example.com", "danny", "s3cret pass"));
+        var saved = NavidromeCredentials.Save(new NavidromeAccount("https://music.example.com", "danny", "s3cret pass"));
 
         var back = NavidromeCredentials.Load();
 
-        Assert.Equal(new NavidromeAccount("https://music.example.com", "danny", "s3cret pass"), back);
-        Assert.DoesNotContain("s3cret", File.ReadAllText(SavedFile));
+        Assert.Equal(saved, back);
+        Assert.Equal("", back!.Password);
+        Assert.True(back.IsComplete);
+        Assert.Equal(Token("s3cret pass", back.Salt), back.Token);   // what the server expects for that salt
+        string file = File.ReadAllText(SavedFile);
+        Assert.DoesNotContain("s3cret", file);
+        Assert.DoesNotContain(Convert.ToBase64String(Encoding.UTF8.GetBytes("s3cret pass")), file);
         if (OperatingSystem.IsWindows())
-            Assert.DoesNotContain(Convert.ToBase64String(Encoding.UTF8.GetBytes("s3cret pass")), File.ReadAllText(SavedFile));   // encrypted, not just encoded
+            Assert.DoesNotContain(back.Token, file);   // the token is encrypted, not just encoded
+    }
+
+    private static string Token(string password, string salt) =>
+        Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(password + salt))).ToLowerInvariant();
+
+    [Fact]
+    public void A_login_saved_with_its_password_by_an_earlier_version_still_works_and_is_rewritten_without_it()
+    {
+        string old = OperatingSystem.IsWindows() ? "" : Convert.ToBase64String(Encoding.UTF8.GetBytes("old pass"));
+        if (OperatingSystem.IsWindows())
+        {
+            // The earlier version's file: the password under DPAPI, with the same extra bytes.
+            old = Convert.ToBase64String(System.Security.Cryptography.ProtectedData.Protect(
+                Encoding.UTF8.GetBytes("old pass"), "GZJam Navidrome"u8.ToArray(), System.Security.Cryptography.DataProtectionScope.CurrentUser));
+        }
+        File.WriteAllText(SavedFile, $$"""{"Url":"https://m.example.com","User":"danny","Password":"{{old}}","Protection":"{{(OperatingSystem.IsWindows() ? "dpapi" : "none")}}"}""");
+
+        var back = NavidromeCredentials.Load();
+
+        Assert.True(back!.IsComplete);
+        Assert.Equal(Token("old pass", back.Salt), back.Token);
+        Assert.DoesNotContain("\"Password\"", File.ReadAllText(SavedFile));   // rewritten
+        Assert.Equal(back, NavidromeCredentials.Load());
     }
 
     [Fact]
@@ -60,6 +88,7 @@ public sealed class NavidromeSettingsTests : IDisposable
 
         Assert.Equal(new NavidromeAccount("https://m.example.com", "danny", ""), back);
         Assert.False(back!.IsComplete);
+        Assert.False(back.HasLogin);
     }
 
     [Fact]
@@ -115,7 +144,9 @@ public sealed class NavidromeSettingsTests : IDisposable
         var syncsMade = new List<string>();
         syncs = syncsMade;
         var vm = app.ViewModel.Settings.Navidrome;
-        vm.CreateClient = account => new NavidromeClient(new Uri(account.Url), account.User, account.Password, new HttpClient(server));
+        vm.CreateClient = account => account.Password.Length > 0
+            ? new NavidromeClient(new Uri(account.Url), account.User, account.Password, new HttpClient(server))
+            : new NavidromeClient(new Uri(account.Url), account.User, account.Salt, account.Token, new HttpClient(server));
         vm.SyncAfterSave = () =>
         {
             syncsMade.Add("synced");
@@ -182,8 +213,10 @@ public sealed class NavidromeSettingsTests : IDisposable
 
         AppHarness.Await(vm.SaveCommand.ExecuteAsync(null));
 
-        Assert.Equal(new NavidromeAccount("https://music.example.com", "danny", "pw"), NavidromeCredentials.Load());
-        Assert.Equal("pw", NavidromeConnection.Account!.Password);
+        var kept = NavidromeCredentials.Load()!;
+        Assert.Equal(("https://music.example.com", "danny", ""), (kept.Url, kept.User, kept.Password));
+        Assert.Equal(Token("pw", kept.Salt), kept.Token);
+        Assert.Equal(kept, NavidromeConnection.Account);   // in use as saved: the password is forgotten
         Assert.NotNull(NavidromeConnection.Client);
         Assert.NotNull(RemoteSongs.Resolver);
         Assert.Single(syncs);
@@ -219,7 +252,9 @@ public sealed class NavidromeSettingsTests : IDisposable
         vm.ServerUrl = "https://music.example.com/navidrome";
         AppHarness.Await(vm.SaveCommand.ExecuteAsync(null));
 
-        Assert.Equal(new NavidromeAccount("https://music.example.com/navidrome", "danny", "pw"), NavidromeCredentials.Load());
+        var kept = NavidromeCredentials.Load()!;
+        Assert.Equal("https://music.example.com/navidrome", kept.Url);
+        Assert.Equal(Token("pw", kept.Salt), kept.Token);   // the same login, kept without being typed again
     }
 
     [AvaloniaFact]

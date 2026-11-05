@@ -37,6 +37,21 @@ public sealed class NavidromeClientTests
     }
 
     [Fact]
+    public void A_salt_and_token_made_earlier_log_in_without_the_password()
+    {
+        var (salt, token) = NavidromeClient.MakeLogin("s3cret pass");
+        Assert.Equal(NavidromeClient.Token("s3cret pass", salt), token);
+
+        var server = new FakeServer("");
+        using var client = new NavidromeClient(new Uri("https://music.example.com/"), "danny", salt, token, new HttpClient(server));
+        var one = HttpUtility.ParseQueryString(new Uri(client.StreamUrl(NavidromeClient.PathFor("abc"))!).Query);
+        var two = HttpUtility.ParseQueryString(new Uri(client.StreamUrl(NavidromeClient.PathFor("def"))!).Query);
+
+        Assert.Equal((salt, token), (one["s"], one["t"]));
+        Assert.Equal((salt, token), (two["s"], two["t"]));   // the same pair every time, which the server accepts
+        Assert.DoesNotContain("s3cret", client.StreamUrl(NavidromeClient.PathFor("abc")));
+    }
+    [Fact]
     public void A_songs_stream_address_asks_for_the_original_file_and_never_holds_the_password()
     {
         string url = Client(new FakeServer("")).StreamUrl(NavidromeClient.PathFor("abc"))!;

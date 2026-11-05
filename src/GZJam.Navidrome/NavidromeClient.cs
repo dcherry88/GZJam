@@ -21,17 +21,49 @@ public sealed class NavidromeClient : IDisposable
     private readonly Uri _server;
     private readonly string _user;
     private readonly string _password;
+    private readonly string? _salt;
+    private readonly string? _token;
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;
 
     public NavidromeClient(Uri server, string user, string password, HttpClient? http = null)
+        : this(server, user, password, null, null, http)
+    {
+    }
+
+    /// <summary>
+    /// Logs in with a <paramref name="salt"/> and <paramref name="token"/> made earlier by
+    /// <see cref="MakeLogin"/>, so the password itself needn't be kept anywhere.
+    /// </summary>
+    public NavidromeClient(Uri server, string user, string salt, string token, HttpClient? http = null)
+        : this(server, user, "", salt, token, http)
+    {
+    }
+
+    private NavidromeClient(Uri server, string user, string password, string? salt, string? token, HttpClient? http)
     {
         _server = new Uri(server.ToString().TrimEnd('/') + "/");
         _user = user;
         _password = password;
+        _salt = salt;
+        _token = token;
         _ownsHttp = http is null;
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
     }
+
+    /// <summary>
+    /// A salt and the Subsonic token for <paramref name="password"/> with it. The server accepts the
+    /// same pair for every request, so a login can be kept as this instead of the password: it is
+    /// no use for anything but this server's API (it doesn't show the password, and can't open the
+    /// server's web page), though anyone who has it can use the API as the user.
+    /// </summary>
+    public static (string Salt, string Token) MakeLogin(string password)
+    {
+        string salt = NewSalt();
+        return (salt, Token(password, salt));
+    }
+
+    private static string NewSalt() => Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
 
     public static string PathFor(string songId) => Scheme + songId;
 
@@ -154,8 +186,8 @@ public sealed class NavidromeClient : IDisposable
 
     private string Url(string method, params (string Key, string Value)[] parameters)
     {
-        string salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-        string token = Token(_password, salt);
+        string salt = _salt ?? NewSalt();
+        string token = _token ?? Token(_password, salt);
         var query = new StringBuilder($"u={Uri.EscapeDataString(_user)}&t={token}&s={salt}&v={ApiVersion}&c={ClientName}");
         foreach (var (key, value) in parameters)
             query.Append('&').Append(key).Append('=').Append(Uri.EscapeDataString(value));
