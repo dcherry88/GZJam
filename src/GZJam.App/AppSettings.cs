@@ -84,12 +84,12 @@ public sealed class AppSettings
     public bool ExtraBuffering { get; set; }
 
     /// <summary>
-    /// Songs from a Navidrome server are fetched by themselves: when one is queued, and when one that
-    /// isn't on this computer yet is loaded onto a deck. Off by default: then only songs the DJ asks
-    /// for (right-click > Cache for offline play, or Play and Add to queue in the Navidrome window)
-    /// are downloaded, and a song that isn't here yet isn't loaded.
+    /// What happens to a song from a server that is queued or loaded but isn't on this computer yet and
+    /// wasn't asked for by name (see <see cref="RemoteFetchMode"/>). By default nothing is downloaded by
+    /// itself: only songs the DJ asks for (right-click > Cache for offline play, or Play and Add to queue
+    /// in the Servers window) are, and a song that isn't here can't be loaded or queued.
     /// </summary>
-    public bool NavidromeAutoCache { get; set; }
+    public RemoteFetchMode RemoteFetch { get; set; } = RemoteFetchMode.Never;
 
     /// <summary>
     /// How many decks are on screen: 2, or 4 (half height, 1 and 3 on the left of the mixer, 2 and

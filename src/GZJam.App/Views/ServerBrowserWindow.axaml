@@ -1,15 +1,15 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GZJam.App.ViewModels"
-        x:Class="GZJam.App.Views.NavidromeWindow"
-        x:DataType="vm:NavidromeViewModel"
+        x:Class="GZJam.App.Views.ServerBrowserWindow"
+        x:DataType="vm:ServerBrowserViewModel"
         Width="720" Height="560" MinWidth="480" MinHeight="320"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource PanelBrush}"
-        Title="Navidrome">
-  <!-- Search the Navidrome server; a song is downloaded whole, then loaded on a deck or queued -->
+        Title="Servers">
+  <!-- Search the music servers; a song is downloaded whole, then loaded on a deck or queued -->
   <DockPanel Margin="16">
-    <TextBlock DockPanel.Dock="Top" Classes="label" Text="NAVIDROME" Margin="0,0,0,8" />
+    <TextBlock DockPanel.Dock="Top" Classes="label" Text="SERVERS" Margin="0,0,0,8" />
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="8">
       <TextBox x:Name="QueryBox" Text="{Binding Query}" PlaceholderText="Song, artist or album" IsEnabled="{Binding IsSetUp}" />
       <Button x:Name="SearchButton" Grid.Column="1" Classes="hw" Content="SEARCH" MinWidth="88"
@@ -29,7 +29,7 @@
     </StackPanel>
     <ListBox x:Name="ResultsList" ItemsSource="{Binding Results}" SelectedItem="{Binding Selected}">
       <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:NavidromeRow">
+        <DataTemplate x:DataType="vm:ServerRow">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,2">
             <StackPanel>
               <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />

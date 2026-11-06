@@ -7,26 +7,26 @@ using GZJam.Audio;
 
 namespace GZJam.App.Tests;
 
-/// <summary>Where the songs fetched from Navidrome are kept: the choice in Settings, moving what is there, and the Downloads button.</summary>
-[Collection("Navidrome globals")]   // sets RemoteSongs.CacheDirectory and the one Navidrome login
-public sealed class NavidromeCacheFolderTests : IDisposable
+/// <summary>Where the songs fetched from servers are kept: the choice in Settings, moving what is there, and the Downloads button.</summary>
+[Collection("Server globals")]   // sets RemoteSongs.CacheDirectory and the app's servers
+public sealed class ServerCacheFolderTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("gzjam-cache-folder-").FullName;
     private readonly string? _cacheBefore = RemoteSongs.CacheDirectory;
 
-    public NavidromeCacheFolderTests()
+    public ServerCacheFolderTests()
     {
-        NavidromeCacheFolder.SettingFileOverride = Path.Combine(_dir, "choice.txt");
-        NavidromeCacheFolder.DefaultOverride = Path.Combine(_dir, "default");
-        NavidromeCredentials.PathOverride = Path.Combine(_dir, "navidrome.json");
+        ServerCacheFolder.SettingFileOverride = Path.Combine(_dir, "choice.txt");
+        ServerCacheFolder.DefaultOverride = Path.Combine(_dir, "default");
+        ServerCredentials.PathOverride = Path.Combine(_dir, "servers.json");
     }
 
     public void Dispose()
     {
-        NavidromeConnection.Disconnect();
-        NavidromeCredentials.PathOverride = null;
-        NavidromeCacheFolder.SettingFileOverride = null;
-        NavidromeCacheFolder.DefaultOverride = null;
+        ServerConnections.DisconnectAll();
+        ServerCredentials.PathOverride = null;
+        ServerCacheFolder.SettingFileOverride = null;
+        ServerCacheFolder.DefaultOverride = null;
         RemoteSongs.CacheDirectory = _cacheBefore;
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { Directory.Delete(_dir, recursive: true); }
@@ -48,13 +48,13 @@ public sealed class NavidromeCacheFolderTests : IDisposable
     [Fact]
     public void With_no_choice_the_default_is_used_and_a_choice_is_remembered_until_forgotten()
     {
-        Assert.Equal(NavidromeCacheFolder.Default, NavidromeCacheFolder.Current());
+        Assert.Equal(ServerCacheFolder.Default, ServerCacheFolder.Current());
 
-        NavidromeCacheFolder.Save(Folder("big drive"));
-        Assert.Equal(Folder("big drive"), NavidromeCacheFolder.Current());
+        ServerCacheFolder.Save(Folder("big drive"));
+        Assert.Equal(Folder("big drive"), ServerCacheFolder.Current());
 
-        NavidromeCacheFolder.Save(NavidromeCacheFolder.Default);   // choosing the default is no choice
-        Assert.Equal(NavidromeCacheFolder.Default, NavidromeCacheFolder.Current());
+        ServerCacheFolder.Save(ServerCacheFolder.Default);   // choosing the default is no choice
+        Assert.Equal(ServerCacheFolder.Default, ServerCacheFolder.Current());
         Assert.False(File.Exists(Path.Combine(_dir, "choice.txt")));
     }
 
@@ -64,11 +64,11 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         Songs(Folder("c"), "a.flac", "b.mp3");
         File.WriteAllBytes(Path.Combine(Folder("c"), "c.part"), new byte[999]);
 
-        Assert.Equal((2, 4096), NavidromeCacheFolder.Measure(Folder("c")));
-        Assert.Equal((0, 0), NavidromeCacheFolder.Measure(Folder("nothing here")));
-        Assert.Equal("No songs fetched yet.", NavidromeCacheFolder.Describe(0, 0));
-        Assert.Equal("2 songs, 3 MB", NavidromeCacheFolder.Describe(2, 3 * 1048576));
-        Assert.Equal("1 song, 2.0 GB", NavidromeCacheFolder.Describe(1, 2L * 1073741824));
+        Assert.Equal((2, 4096), ServerCacheFolder.Measure(Folder("c")));
+        Assert.Equal((0, 0), ServerCacheFolder.Measure(Folder("nothing here")));
+        Assert.Equal("No songs fetched yet.", ServerCacheFolder.Describe(0, 0));
+        Assert.Equal("2 songs, 3 MB", ServerCacheFolder.Describe(2, 3 * 1048576));
+        Assert.Equal("1 song, 2.0 GB", ServerCacheFolder.Describe(1, 2L * 1073741824));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
     {
         Songs(Folder("old"), "a.flac", "b.mp3");
 
-        var result = NavidromeCacheFolder.Move(Folder("old"), Folder("new"));
+        var result = ServerCacheFolder.Move(Folder("old"), Folder("new"));
 
         Assert.Equal(new CacheMoveResult(2, 0, 4096), result);
         Assert.Equal(["a.flac", "b.mp3"], Directory.GetFiles(Folder("new")).Select(Path.GetFileName).Order());
@@ -89,7 +89,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         Songs(Folder("old"), "a.flac", "c.ogg");
         Songs(Folder("new"), "a.flac");
 
-        var result = NavidromeCacheFolder.Move(Folder("old"), Folder("new"));
+        var result = ServerCacheFolder.Move(Folder("old"), Folder("new"));
 
         Assert.Equal(new CacheMoveResult(1, 1, 2048), result);   // c.ogg moved; a.flac was there
         Assert.True(Directory.Exists(Folder("old")));
@@ -104,7 +104,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         Songs(Folder("old"), "b.mp3", "c.ogg");
         using var inUse = new FileStream(Path.Combine(Folder("old"), "b.mp3"), FileMode.Open, FileAccess.Read, FileShare.None);
 
-        var result = NavidromeCacheFolder.Move(Folder("old"), Folder("new"));
+        var result = ServerCacheFolder.Move(Folder("old"), Folder("new"));
 
         Assert.Equal(1, result.Moved);
         Assert.Equal(1, result.Stayed);
@@ -117,13 +117,13 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         string file = Path.Combine(_dir, "a file");
         File.WriteAllText(file, "");
 
-        Assert.Null(NavidromeCacheFolder.Problem(Folder("fine")));
-        Assert.NotNull(NavidromeCacheFolder.Problem(Path.Combine(file, "inside a file")));
+        Assert.Null(ServerCacheFolder.Problem(Folder("fine")));
+        Assert.NotNull(ServerCacheFolder.Problem(Path.Combine(file, "inside a file")));
     }
 
     // ───────────── Settings › Navidrome ─────────────
 
-    private static NavidromeSettingsViewModel Settings(AppHarness app) => app.ViewModel.Settings.Navidrome;
+    private static ServerSettingsViewModel Settings(AppHarness app) => app.ViewModel.Settings.Servers;
 
     [AvaloniaFact]
     public void Choosing_another_folder_can_move_the_songs_already_fetched()
@@ -143,7 +143,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
 
         Assert.Contains("2 songs", asked);
         Assert.Equal(Folder("new"), RemoteSongs.CacheDirectory);
-        Assert.Equal(Folder("new"), NavidromeCacheFolder.Current());
+        Assert.Equal(Folder("new"), ServerCacheFolder.Current());
         Assert.Equal(2, Directory.GetFiles(Folder("new")).Length);
         Assert.Equal(Folder("new"), vm.CacheFolder);
         Assert.Equal("2 songs, 0 MB", vm.CacheSummary);
@@ -166,7 +166,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         Assert.Equal(Folder("new"), RemoteSongs.CacheDirectory);
         Assert.Empty(Directory.GetFiles(Folder("new")));
         Assert.Single(Directory.GetFiles(Folder("old")));
-        Assert.Equal($"Songs from Navidrome are kept in {Folder("new")} from now on.", vm.Status);
+        Assert.Equal($"Songs from servers are kept in {Folder("new")} from now on.", vm.Status);
     }
 
     [AvaloniaFact]
@@ -216,7 +216,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         AppHarness.Await(vm.UseDefaultCacheFolderCommand.ExecuteAsync(null));
 
         Assert.True(vm.UsesDefaultCacheFolder);
-        Assert.Equal(NavidromeCacheFolder.Default, RemoteSongs.CacheDirectory);
+        Assert.Equal(ServerCacheFolder.Default, RemoteSongs.CacheDirectory);
         Assert.False(File.Exists(Path.Combine(_dir, "choice.txt")));
     }
 
@@ -229,7 +229,7 @@ public sealed class NavidromeCacheFolderTests : IDisposable
         var button = app.Window.FindControl<Button>("DownloadsButton")!;
         Assert.False(button.IsVisible);
 
-        NavidromeConnection.Apply(new NavidromeAccount("https://music.example.com", "danny", "pw"));
+        ServerConnections.Set([new ServerAccount("aaaa0001", "Mine", "https://music.example.com", "danny", "pw")]);
         AppHarness.Settle(100);
         Assert.True(button.IsVisible);
         Assert.False(app.Window.FindControl<TextBlock>("DownloadsBadge")!.IsVisible);   // nothing coming down
@@ -244,18 +244,18 @@ public sealed class NavidromeCacheFolderTests : IDisposable
     public void The_button_counts_what_is_left()
     {
         using var app = new AppHarness();
-        NavidromeConnection.Apply(new NavidromeAccount("https://music.example.com", "danny", "pw"));
+        ServerConnections.Set([new ServerAccount("aaaa0001", "Mine", "https://music.example.com", "danny", "pw")]);
         var badge = app.Window.FindControl<TextBlock>("DownloadsBadge")!;
 
-        app.ViewModel.Downloads.Apply(new RemoteTransfer("navidrome://a", RemoteTransferState.Waiting));
-        app.ViewModel.Downloads.Apply(new RemoteTransfer("navidrome://b", RemoteTransferState.Downloading, 100, 1000));
+        app.ViewModel.Downloads.Apply(new RemoteTransfer("subsonic://aaaa0001/a", RemoteTransferState.Waiting));
+        app.ViewModel.Downloads.Apply(new RemoteTransfer("subsonic://aaaa0001/b", RemoteTransferState.Downloading, 100, 1000));
         AppHarness.Settle(100);
 
         Assert.True(badge.IsVisible);
         Assert.Equal("2 left", badge.Text);
 
-        app.ViewModel.Downloads.Apply(new RemoteTransfer("navidrome://a", RemoteTransferState.Done, 5, 5));
-        app.ViewModel.Downloads.Apply(new RemoteTransfer("navidrome://b", RemoteTransferState.Done, 5, 5));
+        app.ViewModel.Downloads.Apply(new RemoteTransfer("subsonic://aaaa0001/a", RemoteTransferState.Done, 5, 5));
+        app.ViewModel.Downloads.Apply(new RemoteTransfer("subsonic://aaaa0001/b", RemoteTransferState.Done, 5, 5));
         AppHarness.Settle(100);
         Assert.False(badge.IsVisible);
     }

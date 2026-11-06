@@ -2,7 +2,7 @@ using Microsoft.Data.Sqlite;
 
 namespace GZJam.Library;
 
-/// <summary>A playlist on a server: its id there, its name, and its songs' paths (<c>navidrome://&lt;id&gt;</c>) in order.</summary>
+/// <summary>A playlist on a server: its id there, its name, and its songs' paths (<c>subsonic://&lt;server&gt;/&lt;id&gt;</c>) in order.</summary>
 public sealed record RemotePlaylist(string Id, string Name, IReadOnlyList<string> Paths);
 
 /// <summary>What a sync of a server's playlists changed.</summary>
@@ -19,7 +19,7 @@ public sealed partial class LibraryDatabase
     /// whose name a playlist of theirs has already is called "Name (<paramref name="label"/>)".
     /// A copy the DJ deleted comes back at the next sync.
     /// </summary>
-    /// <param name="source">Which server, e.g. <c>navidrome</c>.</param>
+    /// <param name="source">Which server: its id in GZJam.</param>
     /// <param name="label">How the server is named in a playlist name that needs telling apart.</param>
     public RemotePlaylistSyncResult SyncRemotePlaylists(string source, string label, IReadOnlyCollection<RemotePlaylist> playlists)
     {

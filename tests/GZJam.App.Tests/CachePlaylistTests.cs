@@ -11,11 +11,12 @@ namespace GZJam.App.Tests;
 /// Caching songs from a server for offline play (a playlist, a folder, some songs), through the
 /// download queue and its Downloads list, with a stand-in server.
 /// </summary>
-[Collection("Navidrome globals")]   // sets RemoteSongs.Resolver, which Settings tests change too
+[Collection("Server globals")]   // sets RemoteSongs.Resolver, which Settings tests change too
 public sealed class CachePlaylistTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("gzjam-cache-playlist-").FullName;
     private readonly HttpListener _server = new();
+    private const string Prefix = "subsonic://test0001/";
     private readonly byte[] _tone;
     private readonly string _base;
     private int _requests;
@@ -32,7 +33,7 @@ public sealed class CachePlaylistTests : IDisposable
         _server.Start();
         _ = Task.Run(Serve);
         RemoteSongs.CacheDirectory = Path.Combine(_dir, "cache");
-        RemoteSongs.Resolver = path => path.StartsWith("navidrome://", StringComparison.Ordinal) ? _base + path["navidrome://".Length..] : null;
+        RemoteSongs.Resolver = path => path.StartsWith(Prefix, StringComparison.Ordinal) ? _base + path[Prefix.Length..] : null;
     }
 
     public void Dispose()
@@ -40,6 +41,7 @@ public sealed class CachePlaylistTests : IDisposable
         RemoteSongs.StopAll();
         RemoteSongs.Resolver = null;
         RemoteSongs.CacheDirectory = null;
+        RemoteSongs.AutoFetch = RemoteFetchMode.Never;
         _server.Close();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         try { Directory.Delete(_dir, recursive: true); }
@@ -82,20 +84,20 @@ public sealed class CachePlaylistTests : IDisposable
 
     private static Track Song(string id) => new()
     {
-        Path = "navidrome://" + id, Folder = "Band/Album", FileName = id + ".wav", Title = id, Artist = "Band", Album = "Album", Duration = TimeSpan.FromSeconds(3),
+        Path = Prefix + id, Folder = "Band/Album", FileName = id + ".wav", Title = id, Artist = "Band", Album = "Album", Duration = TimeSpan.FromSeconds(3),
     };
 
     private static PlaylistInfo PlaylistOf(AppHarness app, params string[] ids)
     {
         var db = app.Database;
-        db.SyncRemoteTracks(db.AddRemoteRoot("navidrome"), [.. ids.Distinct().Select(Song)]);
-        db.SyncRemotePlaylists("navidrome", "Navidrome", [new RemotePlaylist("p1", "Friday", [.. ids.Select(i => "navidrome://" + i)])]);
+        db.SyncRemoteTracks(db.AddRemoteRoot("subsonic://test0001"), [.. ids.Distinct().Select(Song)]);
+        db.SyncRemotePlaylists("test0001", "Test", [new RemotePlaylist("p1", "Friday", [.. ids.Select(i => Prefix + i)])]);
         app.Library.RefreshPlaylists();
         return db.GetPlaylists().Single();
     }
 
     private static void WaitUntilCached(params string[] ids) =>
-        AppHarness.WaitFor(() => ids.All(i => RemoteSongs.IsCached("navidrome://" + i)), TimeSpan.FromSeconds(20));
+        AppHarness.WaitFor(() => ids.All(i => RemoteSongs.IsCached(Prefix + i)), TimeSpan.FromSeconds(20));
 
     /// <summary>Loads a song on a deck, letting the window's thread work while it waits for the download.</summary>
     private static bool Load(AppHarness app, ViewModels.DeckViewModel deck, Track song)
@@ -105,50 +107,101 @@ public sealed class CachePlaylistTests : IDisposable
         return task.Result;
     }
     [AvaloniaFact]
-    public void Songs_are_not_fetched_by_themselves_unless_Settings_say_so()
+    public void Nothing_is_fetched_by_itself_unless_Settings_say_so()
     {
         using var app = new AppHarness();
-        Assert.False(app.Settings.NavidromeAutoCache);   // off to start with
-        Assert.False(app.ViewModel.Settings.Navidrome.AutoCache);
+        Assert.Equal(RemoteFetchMode.Never, app.Settings.RemoteFetch);   // off to start with
+        Assert.Equal(RemoteFetchMode.Never, app.ViewModel.Settings.Servers.FetchChoice.Value);
         Track song = Song("a");
-        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("navidrome"), [song]);
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("subsonic://test0001"), [song]);
 
-        // Queued: nothing is downloaded.
-        app.ViewModel.Queue.Add([song]);
+        // Queued: refused, with the way to get it, and nothing is downloaded.
+        app.ViewModel.AddToQueue([song]);
         AppHarness.Settle(300);
+        Assert.Empty(app.ViewModel.Queue.Items);
+        Assert.Contains("not on this computer yet", app.ViewModel.Notice);
         Assert.Equal(0, _requests);
-        Assert.False(RemoteSongs.IsCached(song.Path));
 
-        // Put on a deck: refused, with the way to get it, and still nothing downloaded.
+        // Put on a deck: the same.
         var deck = app.ViewModel.Deck1!;
         Assert.False(Load(app, deck, song));
         Assert.Contains("isn't on this computer yet", app.ViewModel.Notice);
         Assert.Equal(0, _requests);
         Assert.False(deck.HasTrack);
 
-        // Asked for by hand (the playlist's menu), the song is fetched, and then it loads.
+        // Asked for by hand (the playlist's menu), the song is fetched, and then it queues and loads.
         app.ViewModel.CacheForOffline([song], "songs");
         WaitUntilCached("a");
+        app.ViewModel.AddToQueue([song]);
+        Assert.Single(app.ViewModel.Queue.Items);
         Assert.True(Load(app, deck, song));
         Assert.True(deck.HasTrack);
     }
 
     [AvaloniaFact]
-    public void With_the_setting_on_a_queued_song_is_fetched_and_a_deck_gets_it_by_itself()
+    public void With_temporary_fetching_a_song_is_downloaded_to_play_and_removed_when_GZJam_starts_again()
     {
         using var app = new AppHarness();
-        app.ViewModel.Settings.Navidrome.AutoCache = true;
-        Assert.True(app.Settings.NavidromeAutoCache);   // kept with the settings
+        app.ViewModel.Settings.Servers.FetchChoice = app.ViewModel.Settings.Servers.FetchChoices.Single(c => c.Value == RemoteFetchMode.Temporary);
+        Assert.Equal(RemoteFetchMode.Temporary, app.Settings.RemoteFetch);   // kept with the settings
         Track queued = Song("q"), loaded = Song("l");
-        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("navidrome"), [queued, loaded]);
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("subsonic://test0001"), [queued, loaded]);
 
-        app.ViewModel.Queue.Add([queued]);
+        app.ViewModel.AddToQueue([queued]);   // fetched as it is queued
         WaitUntilCached("q");
-
         var deck = app.ViewModel.Deck1!;
-        Assert.True(Load(app, deck, loaded));
+        Assert.True(Load(app, deck, loaded));   // and as it is loaded
         Assert.True(RemoteSongs.IsCached(loaded.Path));
         Assert.True(deck.HasTrack);
+
+        // Both are in the temporary folder, not among the kept songs.
+        string cache = RemoteSongs.CacheDirectory!;
+        Assert.Empty(Directory.EnumerateFiles(cache));
+        Assert.Equal(2, Directory.EnumerateFiles(Path.Combine(cache, "temporary")).Count());
+
+        // The next start removes them (a song a deck still has open stays until then).
+        app.ViewModel.Decks.ToList().ForEach(d => d.EjectCommand.Execute(null));
+        RemoteSongs.ClearTemporary();
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(cache, "temporary")));
+        Assert.False(RemoteSongs.IsCached(queued.Path));
+    }
+
+    [AvaloniaFact]
+    public void A_song_fetched_only_to_play_is_kept_when_the_DJ_asks_for_it()
+    {
+        using var app = new AppHarness();
+        app.ViewModel.Settings.Servers.FetchChoice = app.ViewModel.Settings.Servers.FetchChoices.Single(c => c.Value == RemoteFetchMode.Temporary);
+        Track song = Song("k");
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("subsonic://test0001"), [song]);
+        app.ViewModel.AddToQueue([song]);
+        WaitUntilCached("k");
+        string cache = RemoteSongs.CacheDirectory!;
+        Assert.Single(Directory.EnumerateFiles(Path.Combine(cache, "temporary")));
+        int fetched = _requests;
+
+        app.ViewModel.CacheForOffline([song], "songs");   // asked for by name
+        AppHarness.WaitFor(() => Directory.EnumerateFiles(cache).Any(), TimeSpan.FromSeconds(10));
+
+        Assert.Single(Directory.EnumerateFiles(cache));   // moved, not downloaded again
+        Assert.Equal(fetched, _requests);
+        RemoteSongs.ClearTemporary();
+        Assert.True(RemoteSongs.IsCached(song.Path));
+    }
+
+    [AvaloniaFact]
+    public void With_keeping_a_song_is_downloaded_and_stays()
+    {
+        using var app = new AppHarness();
+        app.ViewModel.Settings.Servers.FetchChoice = app.ViewModel.Settings.Servers.FetchChoices.Single(c => c.Value == RemoteFetchMode.Keep);
+        Track song = Song("s");
+        app.Database.SyncRemoteTracks(app.Database.AddRemoteRoot("subsonic://test0001"), [song]);
+
+        app.ViewModel.AddToQueue([song]);
+        WaitUntilCached("s");
+
+        Assert.Single(Directory.EnumerateFiles(RemoteSongs.CacheDirectory!));
+        RemoteSongs.ClearTemporary();
+        Assert.True(RemoteSongs.IsCached(song.Path));
     }
     [AvaloniaFact]
     public void A_playlist_from_the_server_is_marked_and_a_menu_can_say_how_many_songs_are_not_here_yet()
@@ -157,7 +210,7 @@ public sealed class CachePlaylistTests : IDisposable
         var playlist = PlaylistOf(app, "a", "b", "c");
 
         Assert.True(playlist.IsRemote);
-        Assert.Contains("From Navidrome", playlist.Tip);
+        Assert.Contains("From a music server", playlist.Tip);
         Assert.Equal(3, app.ViewModel.NotHere(app.Database.Search(null, playlist: playlist.Id)));
     }
 
@@ -185,13 +238,13 @@ public sealed class CachePlaylistTests : IDisposable
         using var app = new AppHarness();
         var playlist = PlaylistOf(app, "a");
         int before = OfflineIndex.Instance.Version;
-        Assert.False(RemoteSongs.IsCached("navidrome://a"));
+        Assert.False(RemoteSongs.IsCached(Prefix + "a"));
 
         app.ViewModel.CachePlaylist(playlist);
         WaitUntilCached("a");
         AppHarness.WaitFor(() => OfflineIndex.Instance.Version > before, TimeSpan.FromSeconds(10));
 
-        Assert.True(RemoteSongs.IsCached("navidrome://a"));
+        Assert.True(RemoteSongs.IsCached(Prefix + "a"));
     }
 
     [AvaloniaFact]
@@ -242,7 +295,7 @@ public sealed class CachePlaylistTests : IDisposable
         Assert.All(app.ViewModel.Downloads.Items, i => Assert.Equal(RemoteTransferState.Cancelled, i.State));
         Assert.Equal(5, app.ViewModel.Downloads.Items.Count);
         Assert.Null(app.ViewModel.Downloads.Status);
-        Assert.False(RemoteSongs.IsCached("navidrome://s1slow"));
+        Assert.False(RemoteSongs.IsCached(Prefix + "s1slow"));
 
         app.ViewModel.Downloads.ClearFinishedCommand.Execute(null);
         Assert.Empty(app.ViewModel.Downloads.Items);
@@ -253,7 +306,7 @@ public sealed class CachePlaylistTests : IDisposable
     {
         using var app = new AppHarness();
         PlaylistOf(app, "a", "b");
-        var root = app.Database.AddRemoteRoot("navidrome");
+        var root = app.Database.AddRemoteRoot("subsonic://test0001");
 
         app.ViewModel.CacheFolder(root.Id, "Band/Album", "Album");
 

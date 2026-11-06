@@ -323,18 +323,24 @@ public sealed class Track : INotifyPropertyChanged
 public sealed record LibraryRoot(long Id, string Path)
 {
     /// <summary>
-    /// The songs here live on a server, not in a folder (<c>navidrome://</c>): they are filled in by
+    /// The songs here live on a server, not in a folder (<c>subsonic://</c>): they are filled in by
     /// a sync with it rather than a scan, and are never watched or analyzed in the background.
     /// </summary>
     public bool IsRemote => Path.Contains("://", StringComparison.Ordinal);
 
-    public string Name => IsRemote ? RemoteName(Path)
+    public string Name => IsRemote ? RemoteNames?.Invoke(Path) ?? RemoteSchemeName(Path)
         : System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) is { Length: > 0 } name
             ? name
             : Path;
 
-    /// <summary>"Navidrome" for <c>navidrome://</c>.</summary>
-    private static string RemoteName(string path)
+    /// <summary>
+    /// The name of a server's folder, from what the app knows of its servers (a root is
+    /// <c>subsonic://&lt;server&gt;</c>); null for one it doesn't know.
+    /// </summary>
+    public static Func<string, string?>? RemoteNames { get; set; }
+
+    /// <summary>"Subsonic" for <c>subsonic://abc</c>: the scheme, for a server that isn't known.</summary>
+    private static string RemoteSchemeName(string path)
     {
         string scheme = path[..path.IndexOf("://", StringComparison.Ordinal)];
         return scheme.Length == 0 ? path : char.ToUpperInvariant(scheme[0]) + scheme[1..];

@@ -21,7 +21,7 @@ public sealed partial class OfflineIndex : ObservableObject
             if (transfer.State == RemoteTransferState.Done)
                 Dispatcher.UIThread.Post(Changed);
         };
-        NavidromeConnection.Changed += () => Dispatcher.UIThread.Post(Changed);
+        ServerConnections.Changed += () => Dispatcher.UIThread.Post(Changed);
     }
 
     [ObservableProperty]

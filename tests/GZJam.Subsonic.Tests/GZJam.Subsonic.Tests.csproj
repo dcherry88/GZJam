@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GZJam.Navidrome\GZJam.Navidrome.csproj" />
+    <ProjectReference Include="..\..\src\GZJam.Subsonic\GZJam.Subsonic.csproj" />
   </ItemGroup>
 
 </Project>

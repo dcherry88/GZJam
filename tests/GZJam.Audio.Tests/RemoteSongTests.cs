@@ -5,8 +5,8 @@ using GZJam.Testing;
 namespace GZJam.Audio.Tests;
 
 /// <summary>
-/// Songs that live on a server (a Navidrome library): a local web server stands in for it, serving
-/// a tone with byte ranges as Navidrome does, and the real decks play it.
+/// Songs that live on a server (a Navidrome library, say): a local web server stands in for it, serving
+/// a tone with byte ranges as a Subsonic server does, and the real decks play it.
 /// </summary>
 [Collection("BASS")]   // BASS is process-global; keep these tests sequential
 public sealed class RemoteSongTests : IDisposable
@@ -32,12 +32,14 @@ public sealed class RemoteSongTests : IDisposable
         _mix = new MixEngine(_engine, offline: true);
         RemoteSongs.Resolver = path => path == Song ? _url : null;
         RemoteSongs.CacheDirectory = Path.Combine(_dir, "cache");
+        RemoteSongs.AutoFetch = RemoteFetchMode.Keep;   // the way these tests have it: a song is fetched when something needs it
     }
 
     public void Dispose()
     {
         RemoteSongs.Resolver = null;
         RemoteSongs.CacheDirectory = null;
+        RemoteSongs.AutoFetch = RemoteFetchMode.Never;
         _server.Close();
         _mix.Dispose();
         _engine.Dispose();
@@ -166,6 +168,68 @@ public sealed class RemoteSongTests : IDisposable
         Assert.DoesNotContain("127.0.0.1", ex.Message);
     }
 
+    [Fact]
+    public void Nothing_is_downloaded_by_itself_when_the_mode_is_never_but_a_song_asked_for_is()
+    {
+        RemoteSongs.AutoFetch = RemoteFetchMode.Never;
+
+        var ex = Assert.Throws<AudioException>(() => RemoteSongs.Prepare(Song));
+        Assert.Equal(0, _requests);
+        Assert.Contains("isn't on this computer", ex.Message);
+        Assert.Throws<AudioException>(() => _mix.Decks[0].Load(Song));   // not even by a deck opening it
+        Assert.Equal(0, RemoteSongs.Enqueue([Song], first: true, requested: false));   // nor queued behind someone's back
+        Assert.Equal(0, _requests);
+
+        RemoteSongs.Prepare(Song, requested: true);   // asked for by name
+        Assert.True(RemoteSongs.IsCached(Song));
+        Assert.Equal(1, _requests);
+        _mix.Decks[0].Load(Song);   // and it loads now
+    }
+
+    [Fact]
+    public void In_temporary_mode_a_song_goes_to_a_folder_of_its_own_that_is_cleared()
+    {
+        RemoteSongs.AutoFetch = RemoteFetchMode.Temporary;
+
+        RemoteSongs.Prepare(Song);
+
+        string temporary = Path.Combine(RemoteSongs.CacheDirectory!, "temporary");
+        Assert.True(RemoteSongs.IsCached(Song));
+        Assert.Single(Directory.EnumerateFiles(temporary));
+        Assert.Empty(Directory.EnumerateFiles(RemoteSongs.CacheDirectory!));   // nothing kept
+        RemoteSongs.ClearTemporary();
+        Assert.False(RemoteSongs.IsCached(Song));
+        Assert.Empty(Directory.EnumerateFiles(temporary));
+        Assert.Equal(1, _requests);
+    }
+
+    [Fact]
+    public void A_temporary_song_asked_for_by_name_is_kept_without_another_download()
+    {
+        RemoteSongs.AutoFetch = RemoteFetchMode.Temporary;
+        RemoteSongs.Prepare(Song);
+
+        RemoteSongs.Prepare(Song, requested: true);
+
+        Assert.Single(Directory.EnumerateFiles(RemoteSongs.CacheDirectory!));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(RemoteSongs.CacheDirectory!, "temporary")));
+        Assert.Equal(1, _requests);
+        RemoteSongs.ClearTemporary();
+        Assert.True(RemoteSongs.IsCached(Song));
+        _mix.Decks[0].Load(Song);
+    }
+
+    [Fact]
+    public void A_song_kept_is_used_in_temporary_mode_without_a_copy()
+    {
+        RemoteSongs.Prepare(Song, requested: true);
+        RemoteSongs.AutoFetch = RemoteFetchMode.Temporary;
+
+        RemoteSongs.Prepare(Song);
+
+        Assert.Equal(1, _requests);
+        Assert.False(Directory.Exists(Path.Combine(RemoteSongs.CacheDirectory!, "temporary")) && Directory.EnumerateFiles(Path.Combine(RemoteSongs.CacheDirectory!, "temporary")).Any());
+    }
     [Fact]
     public void A_path_that_is_not_a_server_song_is_read_as_a_file()
     {

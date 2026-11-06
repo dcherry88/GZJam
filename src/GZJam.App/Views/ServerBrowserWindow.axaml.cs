@@ -5,17 +5,17 @@ using GZJam.App.ViewModels;
 namespace GZJam.App.Views;
 
 /// <summary>
-/// Searching the Navidrome server and loading its songs. Not modal, so the decks stay a click
+/// Searching the music servers and loading its songs. Not modal, so the decks stay a click
 /// away. Enter searches, a double-click loads the song on a deck, Escape closes it.
 /// </summary>
-public partial class NavidromeWindow : Window
+public partial class ServerBrowserWindow : Window
 {
-    public NavidromeWindow()
+    public ServerBrowserWindow()
     {
         InitializeComponent();
         QueryBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Key.Enter && DataContext is NavidromeViewModel vm)
+            if (e.Key == Key.Enter && DataContext is ServerBrowserViewModel vm)
             {
                 vm.SearchCommand.Execute(null);
                 e.Handled = true;
@@ -23,7 +23,7 @@ public partial class NavidromeWindow : Window
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         ResultsList.DoubleTapped += (_, _) =>
         {
-            if (DataContext is NavidromeViewModel { Selected: not null } vm)
+            if (DataContext is ServerBrowserViewModel { Selected: not null } vm)
                 vm.LoadOnDeckCommand.Execute(null);
         };
         KeyDown += (_, e) =>
@@ -34,5 +34,5 @@ public partial class NavidromeWindow : Window
         Opened += (_, _) => QueryBox.Focus();
     }
 
-    public NavidromeWindow(NavidromeViewModel vm) : this() => DataContext = vm;
+    public ServerBrowserWindow(ServerBrowserViewModel vm) : this() => DataContext = vm;
 }

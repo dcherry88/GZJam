@@ -1,15 +1,15 @@
 namespace GZJam.Library.Tests;
 
-/// <summary>Songs from a server (Navidrome) in the library, beside the ones in folders.</summary>
+/// <summary>Songs from servers in the library, beside the ones in folders.</summary>
 public sealed class RemoteTracksTests : IDisposable
 {
     private readonly TempLibrary _lib = new();
 
     public void Dispose() => _lib.Dispose();
 
-    private static Track Song(string id, string title, string artist, string album, double? bpm = null) => new()
+    private static Track Song(string id, string title, string artist, string album, double? bpm = null, string? path = null) => new()
     {
-        Path = "navidrome://" + id,
+        Path = path ?? "navidrome://" + id,
         Folder = $"{artist}/{album}",
         FileName = title + ".flac",
         Title = title,
@@ -125,4 +125,53 @@ public sealed class RemoteTracksTests : IDisposable
         Assert.Empty(_lib.Database.Search(null));
         Assert.Equal(Rating.Loved, _lib.Database.GetMarks("navidrome://a1").Rating);
     }
-}
+
+    [Fact]
+    public void Each_server_has_a_root_of_its_own_called_by_the_name_it_was_given()
+    {
+        LibraryRoot mine = _lib.Database.AddRemoteRoot("subsonic://aaaa0001"), daves = _lib.Database.AddRemoteRoot("subsonic://bbbb0002");
+        LibraryRoot.RemoteNames = path => path switch { "subsonic://aaaa0001" => "Navidrome (mine)", "subsonic://bbbb0002" => "Dave's server", _ => null };
+        try
+        {
+            Assert.NotEqual(mine.Id, daves.Id);
+            Assert.True(mine.IsRemote && daves.IsRemote);
+            Assert.Equal(("Navidrome (mine)", "Dave's server"), (mine.Name, daves.Name));
+            Assert.Equal("Subsonic", _lib.Database.AddRemoteRoot("subsonic://cccc0003").Name);   // a server nobody has a name for
+        }
+        finally
+        {
+            LibraryRoot.RemoteNames = null;
+        }
+    }
+
+    [Fact]
+    public void Two_servers_can_have_a_song_with_the_same_id_and_each_keeps_its_own_marks()
+    {
+        LibraryRoot mine = _lib.Database.AddRemoteRoot("subsonic://aaaa0001"), daves = _lib.Database.AddRemoteRoot("subsonic://bbbb0002");
+        _lib.Database.SyncRemoteTracks(mine, [Song("x", "Jump", "Basie", "Decca", path: "subsonic://aaaa0001/x")]);
+        _lib.Database.SyncRemoteTracks(daves, [Song("x", "Jump", "Basie", "Decca", path: "subsonic://bbbb0002/x")]);
+
+        _lib.Database.SetRating(["subsonic://aaaa0001/x"], Rating.Loved);
+
+        Assert.Equal(2, _lib.Database.Search("jump").Count);
+        Assert.Equal(Rating.Loved, _lib.Database.GetMarks("subsonic://aaaa0001/x").Rating);
+        Assert.NotEqual(Rating.Loved, _lib.Database.GetMarks("subsonic://bbbb0002/x").Rating);
+    }
+
+    [Fact]
+    public void Forgetting_a_server_takes_its_songs_and_playlists_and_leaves_the_others()
+    {
+        LibraryRoot mine = _lib.Database.AddRemoteRoot("subsonic://aaaa0001"), daves = _lib.Database.AddRemoteRoot("subsonic://bbbb0002");
+        _lib.Database.SyncRemoteTracks(mine, [Song("1", "Jump", "Basie", "Decca", path: "subsonic://aaaa0001/1")]);
+        _lib.Database.SyncRemoteTracks(daves, [Song("1", "Topsy", "Basie", "Decca", path: "subsonic://bbbb0002/1")]);
+        _lib.Database.SyncRemotePlaylists("aaaa0001", "Mine", [new RemotePlaylist("p", "Friday", ["subsonic://aaaa0001/1"])]);
+        _lib.Database.SyncRemotePlaylists("bbbb0002", "Dave's", [new RemotePlaylist("p", "Swing", ["subsonic://bbbb0002/1"])]);
+        _lib.Database.SetRating(["subsonic://bbbb0002/1"], Rating.Loved);
+
+        _lib.Database.ForgetRemoteServer("bbbb0002", "subsonic://bbbb0002");
+
+        Assert.Equal(["Jump"], _lib.Database.Search(null).Select(t => t.Title));
+        Assert.Equal(["Friday"], _lib.Database.GetPlaylists().Select(p => p.Name));
+        Assert.Equal(Rating.Loved, _lib.Database.GetMarks("subsonic://bbbb0002/1").Rating);   // kept by path, as for a deleted file
+        Assert.DoesNotContain(_lib.Database.GetRoots(), r => r.Path == "subsonic://bbbb0002");
+    }}

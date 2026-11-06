@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{StaticResource PanelBrush}"
         Title="Downloads">
-  <!-- Songs coming down from the Navidrome server: waiting, downloading, and how the last ones went -->
+  <!-- Songs coming down from the music servers: waiting, downloading, and how the last ones went -->
   <DockPanel Margin="16">
     <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,10">
       <TextBlock Classes="label" Text="DOWNLOADS" />
@@ -21,7 +21,7 @@
       <Button x:Name="CloseButton" Classes="hw" Content="CLOSE" IsCancel="True" IsDefault="True" MinWidth="88" Click="OnCloseClick" />
     </StackPanel>
     <TextBlock DockPanel.Dock="Top" x:Name="EmptyText" Classes="setting-help" TextWrapping="Wrap"
-               Text="Nothing yet. Right-click a playlist, a Navidrome folder or some songs and choose Cache for offline play, or queue a song, and it shows up here."
+               Text="Nothing yet. Right-click a playlist, a server folder or some songs and choose Cache for offline play, or queue a song, and it shows up here."
                IsVisible="{Binding !HasItems}" />
     <ListBox x:Name="DownloadList" ItemsSource="{Binding Items}" SelectionMode="Single">
       <ListBox.ItemTemplate>

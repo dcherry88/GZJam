@@ -18,12 +18,28 @@ public enum RemoteTransferState
     Cancelled,
 }
 
+/// <summary>
+/// What happens when something needs a remote song that isn't on this computer and the DJ has not
+/// asked for it: a song queued, loaded onto a deck, or opened for analysis.
+/// </summary>
+public enum RemoteFetchMode
+{
+    /// <summary>Nothing is downloaded by itself: the song can't be used until the DJ downloads it.</summary>
+    Never,
+
+    /// <summary>It is downloaded into a temporary folder, to play, and removed when GZJam next starts or closes.</summary>
+    Temporary,
+
+    /// <summary>It is downloaded and kept, like a song the DJ asked for.</summary>
+    Keep,
+}
+
 /// <summary>A change in a download. <paramref name="Total"/> is 0 until the server says how big the song is.</summary>
 public readonly record struct RemoteTransfer(string Path, RemoteTransferState State, long Received = 0, long Total = 0, string? Error = null);
 
 /// <summary>
-/// Songs that live on a server rather than in a file (a Navidrome library). A song's "path" is a
-/// name that <see cref="Resolver"/> turns into a URL, e.g. <c>navidrome://6AyEHLQ</c>.
+/// Songs that live on a server rather than in a file (a Navidrome library, say). A song's "path" is a
+/// name that <see cref="Resolver"/> turns into a URL, e.g. <c>subsonic://3fa9c01b/6AyEHLQ</c>.
 ///
 /// A remote song is downloaded whole, once, into <see cref="CacheDirectory"/>, and from then on
 /// it is a file like any other: the decks, the analysis and the close-up waveform all open that
@@ -47,6 +63,37 @@ public static partial class RemoteSongs
 
     /// <summary>Where downloaded songs are kept; null: a folder in the computer's temporary files.</summary>
     public static string? CacheDirectory { get; set; }
+
+    /// <summary>What is done for a song nobody asked to download (see <see cref="RemoteFetchMode"/>). Set by the app from the DJ's choice.</summary>
+    public static RemoteFetchMode AutoFetch { get; set; } = RemoteFetchMode.Never;
+
+    /// <summary>Where songs fetched only to play are put: a folder inside the cache folder.</summary>
+    private static string TemporaryFolder() => Path.Combine(Folder(), "temporary");
+
+    /// <summary>
+    /// Removes the songs that were fetched only to play. Run when GZJam starts and when it closes; a
+    /// song still open then stays until the next start.
+    /// </summary>
+    public static void ClearTemporary()
+    {
+        string folder = TemporaryFolder();
+        if (!Directory.Exists(folder))
+            return;
+        foreach (string file in Directory.EnumerateFiles(folder))
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // In use by a deck, or by something else: it goes at the next start.
+            }
+        }
+        lock (s_indexLock)
+            s_index = null;
+        s_downloads.Clear();
+    }
 
     /// <summary>How long a song may take to download before it is given up on.</summary>
     public static TimeSpan DownloadTimeout { get; set; } = TimeSpan.FromSeconds(120);
@@ -93,10 +140,10 @@ public static partial class RemoteSongs
         if (s_index is null || s_indexFolder != folder)
         {
             s_indexFolder = folder;
-            s_index = Directory.Exists(folder)
-                ? Directory.EnumerateFiles(folder).Where(f => !f.EndsWith(".part", StringComparison.Ordinal))
-                    .Select(f => Path.GetFileNameWithoutExtension(f)).ToHashSet(StringComparer.Ordinal)
-                : [];
+            // Songs kept, and songs fetched only to play: both are here.
+            s_index = [.. new[] { folder, TemporaryFolder() }.Where(Directory.Exists)
+                .SelectMany(Directory.EnumerateFiles).Where(f => !f.EndsWith(".part", StringComparison.Ordinal))
+                .Select(f => Path.GetFileNameWithoutExtension(f))];
         }
         return s_index;
     }
@@ -114,22 +161,37 @@ public static partial class RemoteSongs
 
     // ───────────── Fetching ─────────────
 
-    /// <summary>Downloads the song now if it isn't here yet, ahead of everything queued. Call it off the UI thread.</summary>
-    public static void Prepare(string path) => LocalFile(path, CancellationToken.None);
+    /// <summary>
+    /// Makes sure the song is here, downloading it now if it isn't, ahead of everything queued. Call
+    /// it off the UI thread. <paramref name="requested"/>: the DJ asked for this song, so it is
+    /// downloaded and kept whatever <see cref="AutoFetch"/> says; otherwise <see cref="AutoFetch"/>
+    /// decides (and a song that isn't here is refused under <see cref="RemoteFetchMode.Never"/>).
+    /// </summary>
+    public static void Prepare(string path, bool requested = false) => LocalFile(path, CancellationToken.None, requested);
 
     /// <summary>
-    /// The downloaded copy of a remote song, downloaded first if need be. Everyone asking at once
-    /// shares one download; a failed one is forgotten, so the next ask tries again.
+    /// The downloaded copy of a remote song, downloaded first if need be, as <see cref="AutoFetch"/> says
+    /// (nobody asked for it by name). Everyone asking at once shares one download; a failed one is
+    /// forgotten, so the next ask tries again.
     /// </summary>
-    internal static string LocalFile(string path) => LocalFile(path, CancellationToken.None);
+    internal static string LocalFile(string path) => LocalFile(path, CancellationToken.None, requested: false);
 
-    private static string LocalFile(string path, CancellationToken stop)
+    private static string LocalFile(string path, CancellationToken stop, bool requested)
     {
-        var download = s_downloads.GetOrAdd(path, p => new Lazy<string>(() => Fetch(p, stop)));
+        bool temporary = !requested && AutoFetch == RemoteFetchMode.Temporary;
+        if (s_downloads.TryGetValue(path, out var known) && known.IsValueCreated && File.Exists(known.Value))
+        {
+            // Already here; if it was only to play and the DJ now asks for it, it is kept.
+            return requested && InTemporaryFolder(known.Value) ? Keep(path, known.Value) : known.Value;
+        }
+        if (!requested && AutoFetch == RemoteFetchMode.Never && !IsCached(path))
+            throw new AudioException("That song isn't on this computer yet", Errors.Unknown);
+
+        var download = s_downloads.GetOrAdd(path, p => new Lazy<string>(() => Fetch(p, stop, temporary)));
         try
         {
             if (File.Exists(download.Value))
-                return download.Value;
+                return requested && InTemporaryFolder(download.Value) ? Keep(path, download.Value) : download.Value;
         }
         catch
         {
@@ -139,13 +201,42 @@ public static partial class RemoteSongs
         // The copy was deleted since (the cache folder cleared): fetch it again.
         s_downloads.TryRemove(new KeyValuePair<string, Lazy<string>>(path, download));
         Remember(Stem(path), here: false);
-        return LocalFile(path, stop);
+        return LocalFile(path, stop, requested);
     }
 
-    private static string Fetch(string path, CancellationToken stop)
+    private static bool InTemporaryFolder(string file) =>
+        string.Equals(Path.GetDirectoryName(file), TemporaryFolder(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Keeps a song for good if its only copy is the one fetched to play.</summary>
+    private static void KeepIfTemporary(string path)
+    {
+        string stem = Stem(path);
+        if (Kept(Folder(), stem) is null && Kept(TemporaryFolder(), stem) is { } temporary)
+            Keep(path, temporary);
+    }
+
+    /// <summary>A song that was fetched only to play, now wanted for good: moved into the cache folder (copied, if a deck has it open).</summary>
+    private static string Keep(string path, string temporaryFile)
+    {
+        string target = Path.Combine(Folder(), Path.GetFileName(temporaryFile));
+        try
+        {
+            File.Move(temporaryFile, target, overwrite: true);
+        }
+        catch (IOException)
+        {
+            // Open in a deck: kept as a copy, and the temporary one goes with the next start.
+            File.Copy(temporaryFile, target, overwrite: true);
+        }
+        s_downloads[path] = new Lazy<string>(target);
+        Raise(new RemoteTransfer(path, RemoteTransferState.Done, new FileInfo(target).Length, new FileInfo(target).Length));
+        return target;
+    }
+
+    private static string Fetch(string path, CancellationToken stop, bool temporary)
     {
         string url = Resolver?.Invoke(path) ?? throw new AudioException($"'{path}' isn't a song on a server", Errors.Unknown);
-        string folder = Folder();
+        string folder = temporary ? TemporaryFolder() : Folder();
         try
         {
             Directory.CreateDirectory(folder);
@@ -154,11 +245,13 @@ public static partial class RemoteSongs
         {
             // A folder on a drive that isn't plugged in, say.
             Raise(new RemoteTransfer(path, RemoteTransferState.Failed, Error: "The folder for downloaded songs isn't available"));
-            throw new AudioException("The folder for downloaded songs isn't available (Settings › Navidrome)", Errors.Unknown);
+            throw new AudioException("The folder for downloaded songs isn't available (Settings › Servers)", Errors.Unknown);
         }
         string stem = Stem(path);
 
-        if (Kept(folder, stem) is { } kept)
+        // A song kept already is used even when only a temporary copy was wanted.
+        string? kept = (temporary ? Kept(Folder(), stem) : null) ?? Kept(folder, stem);
+        if (kept is not null)
         {
             Remember(stem, here: true);
             return kept;   // from before: a new run, or another deck
@@ -221,6 +314,9 @@ public static partial class RemoteSongs
     private static readonly Lock s_queueLock = new();
     private static readonly LinkedList<string> s_waiting = new();
     private static readonly HashSet<string> s_waitingSet = new(StringComparer.Ordinal);
+
+    /// <summary>Waiting songs nobody asked for by name (queued, say): fetched as <see cref="AutoFetch"/> says.</summary>
+    private static readonly HashSet<string> s_automatic = new(StringComparer.Ordinal);
     private static int s_workers;
     private static CancellationTokenSource s_stop = new();
 
@@ -231,15 +327,30 @@ public static partial class RemoteSongs
     /// being cached). A song that couldn't be fetched is tried again when it is loaded.
     /// </summary>
     /// <returns>How many songs were added.</returns>
-    public static int Enqueue(IEnumerable<string> paths, bool first = false)
+    public static int Enqueue(IEnumerable<string> paths, bool first = false, bool requested = true)
     {
+        if (!requested && AutoFetch == RemoteFetchMode.Never)
+            return 0;   // nobody asked, and nothing is fetched by itself
         var added = new List<string>();
+        var promote = new List<string>();
         lock (s_queueLock)
         {
             foreach (string path in first ? Enumerable.Reverse(paths) : paths)
             {
-                if (!IsRemote(path) || IsCached(path) || !s_waitingSet.Add(path))
+                if (!IsRemote(path))
                     continue;
+                if (IsCached(path))
+                {
+                    if (requested)
+                        promote.Add(path);   // here to play only; asked for by name, so it is kept
+                    continue;
+                }
+                if (requested)
+                    s_automatic.Remove(path);   // asked for by name after all: kept
+                if (!s_waitingSet.Add(path))
+                    continue;
+                if (!requested)
+                    s_automatic.Add(path);
                 if (first)
                     s_waiting.AddFirst(path);
                 else
@@ -252,6 +363,8 @@ public static partial class RemoteSongs
                 _ = Task.Run(Work);
             }
         }
+        foreach (string path in promote)
+            KeepIfTemporary(path);
         foreach (string path in first ? Enumerable.Reverse(added) : added)
             Raise(new RemoteTransfer(path, RemoteTransferState.Waiting));
         return added.Count;
@@ -267,6 +380,7 @@ public static partial class RemoteSongs
             dropped = [.. s_waiting];
             s_waiting.Clear();
             s_waitingSet.Clear();
+            s_automatic.Clear();
             stopped = s_stop;
             s_stop = new CancellationTokenSource();
         }
@@ -281,6 +395,7 @@ public static partial class RemoteSongs
         while (true)
         {
             string path;
+            bool requested;
             CancellationToken stop;
             lock (s_queueLock)
             {
@@ -292,11 +407,12 @@ public static partial class RemoteSongs
                 path = next.Value;
                 s_waiting.RemoveFirst();
                 s_waitingSet.Remove(path);
+                requested = !s_automatic.Remove(path);
                 stop = s_stop.Token;
             }
             try
             {
-                LocalFile(path, stop);
+                LocalFile(path, stop, requested);
             }
             catch (AudioException)
             {

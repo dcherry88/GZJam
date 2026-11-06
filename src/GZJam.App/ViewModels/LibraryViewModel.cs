@@ -481,7 +481,7 @@ public sealed partial class LibraryViewModel : ObservableObject, IDisposable
         return (rootPath, f.Node.RelativePath);
     }
 
-    /// <summary>Syncs with the server whose songs are in the library (the Navidrome folder's menu); set by the main view model.</summary>
+    /// <summary>Syncs with the server whose songs are in the library (a server folder's menu); set by the main view model.</summary>
     public Func<Task>? SyncRemote { get; set; }
 
     /// <summary>Fetches the songs under a folder (root id, folder, its name) from the server ahead of time; set by the main view model.</summary>

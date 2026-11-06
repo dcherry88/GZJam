@@ -107,7 +107,7 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// A saved song as a track: a file that is still there, or a song from a server (<c>navidrome://</c>)
+    /// A saved song as a track: a file that is still there, or a song from a server (<c>subsonic://</c>)
     /// the library knows from its last sync. Null if it can't be found.
     /// </summary>
     private Track? Restorable(string path) =>

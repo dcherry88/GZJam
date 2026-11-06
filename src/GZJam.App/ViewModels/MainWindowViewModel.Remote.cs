@@ -1,28 +1,28 @@
 using GZJam.Audio;
 using GZJam.Library;
-using GZJam.Navidrome;
+using GZJam.Subsonic;
 
 namespace GZJam.App.ViewModels;
 
-/// <summary>Songs from a server (Navidrome): syncing with it, and keeping songs on this computer ahead of when they're needed.</summary>
+/// <summary>Songs from music servers: syncing with them, and keeping songs on this computer ahead of when they're needed.</summary>
 public sealed partial class MainWindowViewModel
 {
     /// <summary>The download queue: what is coming down from the server, and how the last ones went.</summary>
     public DownloadsViewModel Downloads { get; }
 
-    /// <summary>Asks for the Downloads window (the top bar's status, the Navidrome window).</summary>
+    /// <summary>Asks for the Downloads window (the top bar's status, the Servers window).</summary>
     public event Action? ShowDownloadsRequested;
 
     public void ShowDownloads() => ShowDownloadsRequested?.Invoke();
 
-    /// <summary>A Navidrome server is set up (the playlists' Refresh button, the menus' sync items).</summary>
-    public bool HasNavidrome => NavidromeConnection.Client is not null;
+    /// <summary>A server is set up (the playlists' Refresh button, the menus' sync items).</summary>
+    public bool HasServers => ServerConnections.Any;
 
-    private void OnNavidromeChanged() => OnPropertyChanged(nameof(HasNavidrome));
+    private void OnServersChanged() => OnPropertyChanged(nameof(HasServers));
 
-    /// <summary>The server is being read now.</summary>
+    /// <summary>The servers are being read now.</summary>
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
-    public partial bool IsSyncingNavidrome { get; private set; }
+    public partial bool IsSyncingServers { get; private set; }
 
     /// <summary>How many of these songs come from a server and aren't on this computer yet.</summary>
     public int NotHere(IEnumerable<Track> tracks) =>
@@ -57,37 +57,46 @@ public sealed partial class MainWindowViewModel
     public void CacheFolder(long rootId, string relativeFolder, string name) =>
         CacheForOffline(_database.Search(null, new FolderScope(rootId, relativeFolder)), $"\"{name}\"");
 
-    /// <summary>Reads the server's songs and playlists again and says what changed (the Navidrome folder's menu, the playlists' Refresh, Settings).</summary>
-    public async Task SyncNavidromeAsync()
+    /// <summary>Reads the servers' songs and playlists again and says what changed (a server folder's menu, the playlists' Refresh, Settings).</summary>
+    public async Task SyncServersAsync()
     {
-        if (NavidromeConnection.Client is null)
+        if (!ServerConnections.Any)
         {
-            ShowNotice("No Navidrome server is set up: Settings › Navidrome", seconds: 6);
+            ShowNotice("No server is set up: Settings > Servers", seconds: 6);
             return;
         }
-        if (IsSyncingNavidrome)
+        if (IsSyncingServers)
             return;
-        IsSyncingNavidrome = true;
-        ShowNotice("Syncing with Navidrome…", seconds: 120);
+        IsSyncingServers = true;
+        ShowNotice("Syncing with the servers.", seconds: 120);
         try
         {
-            if (await NavidromeLibrary.SyncAsync(this) is { } result)
+            if (await ServerLibrary.SyncAsync(this) is { } result)
             {
                 bool changed = result.Songs.Added + result.Songs.Removed + result.Playlists.Added + result.Playlists.Updated + result.Playlists.Removed > 0;
                 string playlists = $"{result.Playlists.Added + result.Playlists.Updated + result.Playlists.Unchanged} playlists";
-                ShowNotice(changed
-                    ? $"Navidrome: {result.Songs.Added + result.Songs.Kept:N0} songs and {playlists}. New: {result.Songs.Added} songs, {result.Playlists.Added} playlists. Gone: {result.Songs.Removed} songs, {result.Playlists.Removed} playlists."
-                    : $"Navidrome: {result.Songs.Added + result.Songs.Kept:N0} songs and {playlists}, no changes", seconds: 8);
+                string problems = result.Problems.Count > 0 ? " Not reached: " + string.Join("; ", result.Problems) + "." : "";
+                ShowNotice((changed
+                    ? $"Servers: {result.Songs.Added + result.Songs.Kept:N0} songs and {playlists}. New: {result.Songs.Added} songs, {result.Playlists.Added} playlists. Gone: {result.Songs.Removed} songs, {result.Playlists.Removed} playlists."
+                    : $"Servers: {result.Songs.Added + result.Songs.Kept:N0} songs and {playlists}, no changes") + problems, seconds: 8);
             }
         }
-        catch (Exception ex) when (ex is NavidromeException or TaskCanceledException)
+        catch (Exception ex) when (ex is SubsonicException or TaskCanceledException)
         {
-            Log.Error("Navidrome sync failed: " + ex.Message);
-            ShowNotice(ex is NavidromeException ? ex.Message : "The Navidrome server didn't answer in time", seconds: 8);
+            Log.Error("Server sync failed: " + ex.Message);
+            ShowNotice(ex is SubsonicException ? ex.Message : "The server didn't answer in time", seconds: 8);
         }
         finally
         {
-            IsSyncingNavidrome = false;
+            IsSyncingServers = false;
         }
+    }
+
+    /// <summary>A server was removed in Settings: its songs and playlists leave the library (hearts and labels are kept by song, the downloaded files stay).</summary>
+    internal void ForgetServer(string serverId)
+    {
+        _database.ForgetRemoteServer(serverId, ServerLibrary.RootPath(serverId));
+        Library.RefreshPlaylists();
+        Library.ReloadAfterRemoteSync();
     }
 }

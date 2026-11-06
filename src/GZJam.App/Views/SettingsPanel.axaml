@@ -28,7 +28,7 @@
             <RadioButton x:Name="NavDecks" Classes="settings-nav" GroupName="SettingsSections" Content="Decks" />
             <RadioButton x:Name="NavScreen" Classes="settings-nav" GroupName="SettingsSections" Content="Screen" />
             <RadioButton x:Name="NavLibrary" Classes="settings-nav" GroupName="SettingsSections" Content="Library" />
-            <RadioButton x:Name="NavNavidrome" Classes="settings-nav" GroupName="SettingsSections" Content="Navidrome" />
+            <RadioButton x:Name="NavServers" Classes="settings-nav" GroupName="SettingsSections" Content="Servers" />
             <RadioButton x:Name="NavAbout" Classes="settings-nav" GroupName="SettingsSections" Content="About" />
           </StackPanel>
         </DockPanel>
@@ -335,81 +335,108 @@
           </StackPanel>
         </ScrollViewer>
 
-        <!-- ───────────── Navidrome ───────────── -->
-        <ScrollViewer x:Name="NavidromePage" HorizontalScrollBarVisibility="Disabled" IsVisible="False">
-          <StackPanel Margin="20,16" DataContext="{Binding Navidrome}" x:DataType="vm:NavidromeSettingsViewModel">
-            <TextBlock Classes="settings-group" Text="NAVIDROME SERVER" />
+        <!-- ───────────── Servers ───────────── -->
+        <ScrollViewer x:Name="ServersPage" HorizontalScrollBarVisibility="Disabled" IsVisible="False">
+          <StackPanel Margin="20,16" DataContext="{Binding Servers}" x:DataType="vm:ServerSettingsViewModel">
+            <TextBlock Classes="settings-group" Text="MUSIC SERVERS" />
             <Border Classes="settings-card">
               <StackPanel>
-                <Grid Classes="settings-row" ColumnDefinitions="*,320">
+                <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
                   <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Classes="setting" Text="Server address" />
-                    <TextBlock Classes="setting-help" Text="Where your Navidrome is, like https://music.example.com" />
+                    <TextBlock Classes="setting" Text="Server" />
+                    <TextBlock Classes="setting-help" TextWrapping="Wrap"
+                               Text="Any server that speaks the Subsonic API: Navidrome (recommended), Gonic, Airsonic and others. Add as many as you like: your own, and a friend's who gives you an account." />
                   </StackPanel>
-                  <TextBox x:Name="NavidromeUrlBox" Grid.Column="1" Text="{Binding ServerUrl}" PlaceholderText="https://music.example.com" />
-                </Grid>
-                <Border Classes="settings-rule" />
-                <Grid Classes="settings-row" ColumnDefinitions="*,320">
-                  <TextBlock Classes="setting" Text="User name" VerticalAlignment="Center" />
-                  <TextBox x:Name="NavidromeUserBox" Grid.Column="1" Text="{Binding UserName}" />
-                </Grid>
-                <Border Classes="settings-rule" />
-                <Grid Classes="settings-row" ColumnDefinitions="*,320">
-                  <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Classes="setting" Text="Password" />
-                    <TextBlock x:Name="NavidromePasswordHelp" Classes="setting-help" Text="{Binding PasswordHelp}" TextWrapping="Wrap"
-                               IsVisible="{Binding PasswordHelp, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <ComboBox x:Name="ServerPicker" MinWidth="170" ItemsSource="{Binding Servers}" SelectedItem="{Binding Selected}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ServerEntry">
+                          <TextBlock Text="{Binding Title}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button x:Name="ServerAddButton" Classes="hw" Content="ADD" Command="{Binding AddServerCommand}" IsEnabled="{Binding CanAct}"
+                            ToolTip.Tip="Add another server" />
                   </StackPanel>
-                  <TextBox x:Name="NavidromePasswordBox" Grid.Column="1" Text="{Binding Password}" PasswordChar="•" />
                 </Grid>
+                <StackPanel IsVisible="{Binding HasSelected}">
+                  <Border Classes="settings-rule" />
+                  <Grid Classes="settings-row" ColumnDefinitions="*,320">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Classes="setting" Text="Name" />
+                      <TextBlock Classes="setting-help" Text="Its folder in the library, and in the playlists it adds" />
+                    </StackPanel>
+                    <TextBox x:Name="ServerNameBox" Grid.Column="1" Text="{Binding Selected.Name}" PlaceholderText="My Navidrome" />
+                  </Grid>
+                  <Border Classes="settings-rule" />
+                  <Grid Classes="settings-row" ColumnDefinitions="*,320">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Classes="setting" Text="Server address" />
+                      <TextBlock Classes="setting-help" Text="Where the server is, like https://music.example.com" />
+                    </StackPanel>
+                    <TextBox x:Name="ServerUrlBox" Grid.Column="1" Text="{Binding Selected.Url}" PlaceholderText="https://music.example.com" />
+                  </Grid>
+                  <Border Classes="settings-rule" />
+                  <Grid Classes="settings-row" ColumnDefinitions="*,320">
+                    <TextBlock Classes="setting" Text="User name" VerticalAlignment="Center" />
+                    <TextBox x:Name="ServerUserBox" Grid.Column="1" Text="{Binding Selected.UserName}" />
+                  </Grid>
+                  <Border Classes="settings-rule" />
+                  <Grid Classes="settings-row" ColumnDefinitions="*,320">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Classes="setting" Text="Password" />
+                      <TextBlock x:Name="ServerPasswordHelp" Classes="setting-help" Text="{Binding Selected.PasswordHelp}" TextWrapping="Wrap"
+                                 IsVisible="{Binding Selected.PasswordHelp, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                    <TextBox x:Name="ServerPasswordBox" Grid.Column="1" Text="{Binding Selected.Password}" PasswordChar="•" />
+                  </Grid>
+                </StackPanel>
                 <Border Classes="settings-rule" />
                 <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
-                  <TextBlock x:Name="NavidromeStatusText" Classes="setting-help" Text="{Binding Status}" TextWrapping="Wrap"
+                  <TextBlock x:Name="ServerStatusText" Classes="setting-help" Text="{Binding Status}" TextWrapping="Wrap"
                              VerticalAlignment="Center" Margin="0,0,16,0" />
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button x:Name="NavidromeTestButton" Classes="hw" Content="TEST" Command="{Binding TestCommand}" IsEnabled="{Binding CanAct}"
+                    <Button x:Name="ServerTestButton" Classes="hw" Content="TEST" Command="{Binding TestCommand}" IsEnabled="{Binding CanAct}"
                             ToolTip.Tip="Check the address and login with the server, without saving them" />
-                    <Button x:Name="NavidromeSaveButton" Classes="hw" Content="SAVE" Command="{Binding SaveCommand}" IsEnabled="{Binding CanAct}"
+                    <Button x:Name="ServerSaveButton" Classes="hw" Content="SAVE" Command="{Binding SaveCommand}" IsEnabled="{Binding CanAct}"
                             ToolTip.Tip="Test the login, then keep it and read the server's songs and playlists" />
-                    <Button x:Name="NavidromeDisconnectButton" Classes="hw" Content="DISCONNECT" Command="{Binding DisconnectCommand}"
-                            IsEnabled="{Binding CanDisconnect}" ToolTip.Tip="Forget this server's address and login" />
+                    <Button x:Name="ServerRemoveButton" Classes="hw" Content="REMOVE" Command="{Binding DisconnectCommand}"
+                            IsEnabled="{Binding CanDisconnect}" ToolTip.Tip="Forget this server: its address and login, and its songs and playlists in the library" />
                   </StackPanel>
                 </Grid>
               </StackPanel>
             </Border>
-            <TextBlock Classes="settings-group" Text="DOWNLOADED SONGS" Margin="0,18,0,0" />
+            <TextBlock Classes="settings-group" Text="SONGS FROM SERVERS" Margin="0,18,0,0" />
             <Border Classes="settings-card">
               <StackPanel>
-              <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Classes="setting" Text="Get songs by themselves" />
-                  <TextBlock Classes="setting-help" TextWrapping="Wrap"
-                             Text="Off: only the songs you ask for are downloaded (right-click a playlist, folder or songs > Cache for offline play), and a song that isn't on this computer yet won't load. On: a song is downloaded when it is queued or loaded, and kept." />
-                </StackPanel>
-                <ToggleButton x:Name="NavidromeAutoCacheSwitch" Grid.Column="1" Classes="switch" VerticalAlignment="Center" Margin="16,0,0,0"
-                              IsChecked="{Binding AutoCache}" />
-              </Grid>
-              <Border Classes="settings-rule" />
-              <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Classes="setting" Text="Keep downloaded songs in" />
-                  <TextBlock x:Name="NavidromeCacheFolderText" Classes="setting-help" Text="{Binding CacheFolder}" TextWrapping="Wrap" />
-                  <TextBlock x:Name="NavidromeCacheSummaryText" Classes="setting-help" Text="{Binding CacheSummary}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
-                  <Button x:Name="NavidromeCacheChooseButton" Classes="hw" Content="CHOOSE…" Command="{Binding ChooseCacheFolderCommand}"
-                          IsEnabled="{Binding CanAct}" ToolTip.Tip="Pick another folder, on a bigger drive say. You can move the songs already there" />
-                  <Button x:Name="NavidromeCacheDefaultButton" Classes="hw" Content="DEFAULT" Command="{Binding UseDefaultCacheFolderCommand}"
-                          IsEnabled="{Binding !UsesDefaultCacheFolder}" ToolTip.Tip="Keep them beside GZJam's library again" />
-                  <Button x:Name="NavidromeCacheOpenButton" Classes="hw" Content="OPEN" Command="{Binding OpenCacheFolderCommand}"
-                          ToolTip.Tip="Show the folder in your file manager" />
-                </StackPanel>
-              </Grid>
+                <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="setting" Text="Songs not on this computer" />
+                    <TextBlock x:Name="ServerFetchHelp" Classes="setting-help" TextWrapping="Wrap" Text="{Binding FetchHelp}" />
+                  </StackPanel>
+                  <ComboBox x:Name="ServerFetchBox" Grid.Column="1" Margin="16,0,0,0" ItemsSource="{Binding FetchChoices}" SelectedItem="{Binding FetchChoice}" />
+                </Grid>
+                <Border Classes="settings-rule" />
+                <Grid Classes="settings-row" ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="setting" Text="Keep downloaded songs in" />
+                    <TextBlock x:Name="ServerCacheFolderText" Classes="setting-help" Text="{Binding CacheFolder}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ServerCacheSummaryText" Classes="setting-help" Text="{Binding CacheSummary}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Button x:Name="ServerCacheChooseButton" Classes="hw" Content="CHOOSE…" Command="{Binding ChooseCacheFolderCommand}"
+                            IsEnabled="{Binding CanAct}" ToolTip.Tip="Pick another folder, on a bigger drive say. You can move the songs already there" />
+                    <Button x:Name="ServerCacheDefaultButton" Classes="hw" Content="DEFAULT" Command="{Binding UseDefaultCacheFolderCommand}"
+                            IsEnabled="{Binding !UsesDefaultCacheFolder}" ToolTip.Tip="Keep them beside GZJam's library again" />
+                    <Button x:Name="ServerCacheOpenButton" Classes="hw" Content="OPEN" Command="{Binding OpenCacheFolderCommand}"
+                            ToolTip.Tip="Show the folder in your file manager" />
+                  </StackPanel>
+                </Grid>
               </StackPanel>
             </Border>
             <TextBlock Classes="setting-help" Margin="2,10,2,0" TextWrapping="Wrap" Text="{Binding WhereItIsKept}" />
             <TextBlock Classes="setting-help" Margin="2,6,2,0" TextWrapping="Wrap"
-                       Text="The server's songs appear in the Navidrome folder of the library, and its playlists in the playlist list (in blue). A song has to be on this computer to play, so it plays without the server. Right-click a playlist to fetch all of it ahead of a night with no network." />
+                       Text="Each server's songs appear in a folder of its name in the library, and its playlists in the playlist list (in blue). A song has to be on this computer to play, so it plays without the server. Right-click a playlist to fetch all of it ahead of a night with no network." />
           </StackPanel>
         </ScrollViewer>
 

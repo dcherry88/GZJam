@@ -52,10 +52,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (e.NewItems is not null)
                 {
                     Analysis.Prioritize(e.NewItems.Cast<QueueItem>().Select(i => i.Track));
-                    // With Settings › Navidrome › "Get songs by themselves" on, songs on a server download as they are
-                    // queued, ahead of any playlist being cached, so a deck finds them here.
-                    if (settings.NavidromeAutoCache)
-                        RemoteSongs.Enqueue(e.NewItems.Cast<QueueItem>().Select(i => i.Track.Path), first: true);
+                    // Unless Settings › Servers says songs are only downloaded when asked for, songs on a server
+                    // download as they are queued, ahead of any playlist being cached, so a deck finds them here.
+                    RemoteSongs.Enqueue(e.NewItems.Cast<QueueItem>().Select(i => i.Track.Path), first: true, requested: false);
                 }
             };
         }
@@ -120,7 +119,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 foreach (DeckViewModel deck in Decks)
                     deck.ApplyEndFade();
         };
-        Library.SyncRemote = SyncNavidromeAsync;
+        RemoteSongs.AutoFetch = settings.RemoteFetch;
+        Library.SyncRemote = SyncServersAsync;
         Library.CacheFolder = CacheFolder;
         Downloads = new DownloadsViewModel(this);
         Downloads.PropertyChanged += (_, e) =>
@@ -128,7 +128,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (e.PropertyName is nameof(DownloadsViewModel.Status) or nameof(DownloadsViewModel.Percent))
                 BackgroundChanged();
         };
-        NavidromeConnection.Changed += OnNavidromeChanged;
+        ServerConnections.Changed += OnServersChanged;
 
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateClock());
         _playbackTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => Tick());
@@ -157,7 +157,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         : Library.ScanStatus is not null
         ? "Reading the tags (title, artist, BPM…) of the songs in your music folders. Your files aren't changed."
         : Downloads?.Status is not null
-        ? "Songs coming down from the Navidrome server, to play with no network. The Downloads button shows the list."
+        ? "Songs coming down from the music servers, to play with no network. The Downloads button shows the list."
         : Analysis?.StatusTip;
 
     private void BackgroundChanged()
@@ -523,6 +523,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (tracks.Count == 0)
             return;
+        // Nothing is downloaded by itself: a song from a server that is not on this computer yet
+        // can't be queued, so the room never waits on the network.
+        if (_settings.RemoteFetch == RemoteFetchMode.Never && tracks.Where(t => RemoteSongs.IsRemote(t.Path) && !RemoteSongs.IsCached(t.Path)).ToList() is { Count: > 0 } missing)
+        {
+            tracks = [.. tracks.Except(missing)];
+            ShowNotice(missing.Count == 1
+                ? $"\"{missing[0].DisplayTitle}\" is not on this computer yet. Right-click it > Cache for offline play first."
+                : $"{missing.Count} of these songs are not on this computer yet. Right-click them > Cache for offline play first.", seconds: 8);
+            if (tracks.Count == 0)
+                return;
+        }
         var earlier = FirstPositions(Queue.Items.Select(i => i.Track.Path));
         var repeats = Queue.Add(tracks, index).Where(i => earlier.ContainsKey(i.Track.Path)).ToList();
         if (repeats.Count > 0)
@@ -1326,11 +1337,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         // A song on a server is fetched first, off the UI thread, so the window doesn't wait on it.
         if (RemoteSongs.IsRemote(track.Path) && !RemoteSongs.IsCached(track.Path))
         {
-            if (!_settings.NavidromeAutoCache)
+            if (_settings.RemoteFetch == RemoteFetchMode.Never)
             {
-                // Songs are downloaded when the DJ asks (the playlist's menu, the Navidrome window), not by playing them.
+                // Songs are downloaded when the DJ asks (the playlist's menu, the Servers window), not by playing them.
                 Log.Info($"Deck {deck.Label}: \"{track.DisplayTitle}\" isn't on this computer and songs aren't fetched by themselves");
-                ShowNotice($"\"{track.DisplayTitle}\" isn't on this computer yet. Right-click it > Cache for offline play, or turn on Settings > Navidrome > Get songs by themselves.", seconds: 8);
+                ShowNotice($"\"{track.DisplayTitle}\" isn't on this computer yet. Right-click it > Cache for offline play, or change Settings > Servers > Songs not on this computer.", seconds: 8);
                 return false;
             }
             string getting = $"Getting \"{track.DisplayTitle}\" from the server…";
@@ -1577,7 +1588,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _clock.Stop();
         _playbackTimer.Stop();
-        NavidromeConnection.Changed -= OnNavidromeChanged;
+        ServerConnections.Changed -= OnServersChanged;
         Downloads.Dispose();
         Library.Dispose();
         Art.Dispose();

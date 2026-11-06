@@ -3,11 +3,11 @@ using Microsoft.Data.Sqlite;
 namespace GZJam.Library;
 
 /// <summary>A playlist: <paramref name="Count"/> entries (songs, a song perhaps more than once), <paramref name="Length"/> in all.</summary>
-/// <param name="IsRemote">A copy of a server's playlist (Navidrome): it follows the server, and changes made to it are undone at the next sync.</param>
+/// <param name="IsRemote">A copy of a server's playlist: it follows the server, and changes made to it are undone at the next sync.</param>
 public sealed record PlaylistInfo(long Id, string Name, int Count, TimeSpan Length, bool IsRemote = false)
 {
     /// <summary>The playlist's name for a tooltip, saying where it comes from if it's a server's.</summary>
-    public string Tip => IsRemote ? $"{Name}\nFrom Navidrome: it follows the server" : Name;
+    public string Tip => IsRemote ? $"{Name}\nFrom a music server: it follows the server" : Name;
 }
 
 /// <summary>

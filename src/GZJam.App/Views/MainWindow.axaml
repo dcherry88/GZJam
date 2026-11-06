@@ -79,10 +79,10 @@
                        Value="{Binding BackgroundPercent}" Foreground="{StaticResource AccentBrush}" />
         </StackPanel>
 
-        <!-- Songs coming down from the Navidrome server: the list of them, and how many are left -->
+        <!-- Songs coming down from the music servers: the list of them, and how many are left -->
         <Button x:Name="DownloadsButton" Grid.Column="4" Classes="download-chip" Click="OnDownloadsClick"
-                IsVisible="{Binding HasNavidrome}"
-                ToolTip.Tip="Downloads from the Navidrome server: what is waiting, coming down, and on this computer now (Ctrl+Shift+J)">
+                IsVisible="{Binding HasServers}"
+                ToolTip.Tip="Downloads from the music servers: what is waiting, coming down, and on this computer now (Ctrl+Shift+J)">
           <StackPanel Orientation="Horizontal" Spacing="7">
             <Path Classes="offline-mark" Margin="0" />
             <TextBlock Classes="fader-label" Text="DOWNLOADS" VerticalAlignment="Center" />
@@ -357,7 +357,7 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7" Background="Transparent">
                   <Grid.ContextMenu>
                     <ContextMenu>
-                      <MenuItem Header="Sync with Navidrome" Command="{Binding SyncWithServerCommand}" IsVisible="{Binding ShowsSync}"
+                      <MenuItem Header="Sync with server" Command="{Binding SyncWithServerCommand}" IsVisible="{Binding ShowsSync}"
                                 ToolTip.Tip="Read the server's songs and playlists again" />
                       <MenuItem Header="Cache for offline play" Command="{Binding CacheForOfflineCommand}" IsVisible="{Binding IsRemote}"
                                 ToolTip.Tip="Download every song in here that isn't on this computer yet, so they play with no network" />
@@ -385,8 +385,8 @@
               <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBlock Classes="label" Text="PLAYLISTS" />
                 <Button x:Name="RefreshPlaylistsButton" Grid.Column="1" Classes="link" Content="Refresh" Margin="0,0,10,0"
-                        Click="OnRefreshPlaylistsClick" IsVisible="{Binding HasNavidrome}" IsEnabled="{Binding !IsSyncingNavidrome}"
-                        ToolTip.Tip="Read the Navidrome server's songs and playlists again. Playlists deleted there go from here too." />
+                        Click="OnRefreshPlaylistsClick" IsVisible="{Binding HasServers}" IsEnabled="{Binding !IsSyncingServers}"
+                        ToolTip.Tip="Read the servers' songs and playlists again. Playlists deleted there go from here too." />
                 <Button x:Name="NewPlaylistButton" Grid.Column="2" Classes="link" Content="+ New" Click="OnNewPlaylistClick"
                         ToolTip.Tip="Plan a set: a playlist of songs in order" />
               </Grid>
@@ -409,7 +409,7 @@
                         <MenuItem Header="Export as files…" Click="OnExportPlaylistClick"
                                   ToolTip.Tip="Copy its songs, in order, into a new folder (a USB stick, say) with a playlist beside them" />
                         <MenuItem Header="Cache for offline play" Click="OnCachePlaylistClick"
-                                  ToolTip.Tip="Download the songs from the Navidrome server that aren't on this computer yet, so the playlist plays with no network. They go into the download queue (the Downloads button in the top bar shows it)" />
+                                  ToolTip.Tip="Download the songs from the music server that aren't on this computer yet, so the playlist plays with no network. They go into the download queue (the Downloads button in the top bar shows it)" />
                         <Separator />
                         <MenuItem Header="Rename…" Click="OnRenamePlaylistItemClick" />
                         <MenuItem Header="Delete…" Click="OnDeletePlaylistItemClick" />

@@ -25,7 +25,7 @@ public sealed partial class FolderNodeViewModel : ObservableObject
     public string CountText => Format.Count(Node.TrackCount);
     public bool IsRoot => Node.IsRoot;
 
-    /// <summary>Songs on a server (Navidrome), not in a folder on this computer: nothing to rescan or open.</summary>
+    /// <summary>Songs on a server, not in a folder on this computer: nothing to rescan or open.</summary>
     public bool IsRemote => Node.FullPath.Contains("://", StringComparison.Ordinal);
 
     public bool IsLocal => !IsRemote;
@@ -33,7 +33,7 @@ public sealed partial class FolderNodeViewModel : ObservableObject
     /// <summary>The server's own folder offers a sync, in place of a rescan.</summary>
     public bool ShowsSync => IsRemote && IsRoot;
 
-    /// <summary>A music folder can be forgotten here; the server's songs go with Settings › Navidrome.</summary>
+    /// <summary>A music folder can be forgotten here; a server's songs go with Settings › Servers.</summary>
     public bool CanRemoveFromLibrary => IsRoot && IsLocal;
     public (long RootId, string Folder) Key => (Node.RootId, Node.RelativePath);
 

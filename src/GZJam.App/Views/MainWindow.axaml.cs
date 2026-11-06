@@ -282,17 +282,17 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
-        // Ctrl+Shift+J: the downloads from the Navidrome server.
+        // Ctrl+Shift+J: the downloads from the music servers.
         if (e.Key == Key.J && e.KeyModifiers == (CommandModifier | KeyModifiers.Shift))
         {
             ShowDownloadsWindow();
             e.Handled = true;
             return;
         }
-        // Ctrl+Shift+N: the Navidrome server's songs.
+        // Ctrl+Shift+N: the music servers' songs.
         if (e.Key == Key.N && e.KeyModifiers == (CommandModifier | KeyModifiers.Shift))
         {
-            ShowNavidrome();
+            ShowServerBrowser();
             e.Handled = true;
             return;
         }

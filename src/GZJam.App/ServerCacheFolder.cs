@@ -4,17 +4,17 @@ namespace GZJam.App;
 internal sealed record CacheMoveResult(int Moved, int Stayed, long Bytes);
 
 /// <summary>
-/// Where the songs fetched from the Navidrome server are kept (Settings › Navidrome). The choice
+/// Where the songs fetched from the music servers are kept (Settings › Servers). The choice
 /// is kept in a file of its own beside the settings, not in <c>settings.json</c>: a path like
 /// <c>D:\Music cache</c> belongs to this computer, and library backups carry the settings to others.
 /// With no choice, it is a folder beside the library.
 /// </summary>
-internal static class NavidromeCacheFolder
+internal static class ServerCacheFolder
 {
     /// <summary>Tests keep the choice somewhere else, so they never touch the real one.</summary>
     internal static string? SettingFileOverride { get; set; }
 
-    private static string SettingFile => SettingFileOverride ?? Path.Combine(AppPaths.SettingsDirectory, "navidrome-cache-folder.txt");
+    private static string SettingFile => SettingFileOverride ?? Path.Combine(AppPaths.SettingsDirectory, "server-cache-folder.txt");
 
     /// <summary>Tests use a folder of their own as the default.</summary>
     internal static string? DefaultOverride { get; set; }
@@ -31,7 +31,7 @@ internal static class NavidromeCacheFolder
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Log.Error("Couldn't read where Navidrome songs are kept", ex);
+            Log.Error("Couldn't read where songs from servers are kept", ex);
         }
         return Default;
     }

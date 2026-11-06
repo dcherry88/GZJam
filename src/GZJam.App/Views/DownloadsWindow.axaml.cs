@@ -5,7 +5,7 @@ using GZJam.App.ViewModels;
 namespace GZJam.App.Views;
 
 /// <summary>
-/// The download queue: songs coming down from the Navidrome server, and how the last ones went.
+/// The download queue: songs coming down from the music servers, and how the last ones went.
 /// Not modal, so the decks stay a click away while a playlist comes down. Escape closes it.
 /// </summary>
 public partial class DownloadsWindow : Window

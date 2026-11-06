@@ -175,7 +175,7 @@ public partial class MainWindow
             Vm.CachePlaylist(playlist);
     }
 
-    private void OnRefreshPlaylistsClick(object? sender, RoutedEventArgs e) => _ = Vm.SyncNavidromeAsync();
+    private void OnRefreshPlaylistsClick(object? sender, RoutedEventArgs e) => _ = Vm.SyncServersAsync();
 
     /// <summary>The songs' menu item: fetch the selected songs from the server ahead of time.</summary>
     private void OnCacheSelectedClick(object? sender, RoutedEventArgs e) => Vm.CacheForOffline(SelectedTracks(), "The selected songs");

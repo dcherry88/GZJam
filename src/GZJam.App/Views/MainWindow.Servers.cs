@@ -2,24 +2,24 @@ using GZJam.App.ViewModels;
 
 namespace GZJam.App.Views;
 
-/// <summary>The Navidrome window (Ctrl+Shift+N): search the server, load a song on a deck. One at a time.</summary>
+/// <summary>The Servers window (Ctrl+Shift+N): search the servers, load a song on a deck. One at a time.</summary>
 public partial class MainWindow
 {
-    private NavidromeWindow? _navidrome;
+    private ServerBrowserWindow? _serverBrowser;
 
-    internal NavidromeWindow? Navidrome => _navidrome;
+    internal ServerBrowserWindow? ServerBrowser => _serverBrowser;
 
-    /// <summary>Opens the Navidrome window, or brings the one that's open to the front.</summary>
-    internal NavidromeWindow ShowNavidrome()
+    /// <summary>Opens the Servers window, or brings the one that's open to the front.</summary>
+    internal ServerBrowserWindow ShowServerBrowser()
     {
-        if (_navidrome is { } open)
+        if (_serverBrowser is { } open)
         {
             open.Activate();
             return open;
         }
-        var window = new NavidromeWindow(new NavidromeViewModel(Vm, NavidromeConnection.Client));
-        window.Closed += (_, _) => _navidrome = null;
-        _navidrome = window;
+        var window = new ServerBrowserWindow(new ServerBrowserViewModel(Vm));
+        window.Closed += (_, _) => _serverBrowser = null;
+        _serverBrowser = window;
         window.Show(this);
         return window;
     }
@@ -28,7 +28,7 @@ public partial class MainWindow
 
     internal DownloadsWindow? Downloads => _downloads;
 
-    /// <summary>Lets the view model (the Navidrome window's button) and the top bar's status open the downloads.</summary>
+    /// <summary>Lets the view model (the Servers window's button) and the top bar's status open the downloads.</summary>
     private void SetUpDownloads()
     {
         DataContextChanged += (_, _) =>

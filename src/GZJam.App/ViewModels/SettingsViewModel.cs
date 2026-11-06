@@ -24,12 +24,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _owner = owner;
         _settings = settings;
-        Navidrome = new NavidromeSettingsViewModel(owner);
+        Servers = new ServerSettingsViewModel(owner);
         RefreshDevices();
     }
 
-    /// <summary>Settings › Navidrome: the server's address and login.</summary>
-    public NavidromeSettingsViewModel Navidrome { get; }
+    /// <summary>Settings › Servers: the music servers and their logins.</summary>
+    public ServerSettingsViewModel Servers { get; }
 
     [ObservableProperty]
     public partial IReadOnlyList<AudioDevice> MainDevices { get; private set; } = [];

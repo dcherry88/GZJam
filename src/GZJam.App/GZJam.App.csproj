@@ -31,7 +31,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <!-- Keeps the Navidrome password encrypted for this Windows user (NavidromeCredentials). -->
+    <!-- Keeps the saved logins encrypted for this Windows user (ServerCredentials). -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
   </ItemGroup>
 
@@ -47,7 +47,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GZJam.Library\GZJam.Library.csproj" />
     <ProjectReference Include="..\GZJam.Audio\GZJam.Audio.csproj" />
-    <ProjectReference Include="..\GZJam.Navidrome\GZJam.Navidrome.csproj" />
+    <ProjectReference Include="..\GZJam.Subsonic\GZJam.Subsonic.csproj" />
   </ItemGroup>
 
   <Import Project="..\..\lib\bass\Bass.targets" />
